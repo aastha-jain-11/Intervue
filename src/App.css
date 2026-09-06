@@ -691,6 +691,11 @@ p {
     min-height: 390px
 }
 
+.dashboard-stack {
+    display: grid;
+    gap: 18px
+}
+
 .pipeline-total strong,
 .pipeline-total span {
     display: block
@@ -1202,6 +1207,23 @@ p {
     font-weight: 700;
     color: #66717e;
     margin-bottom: 7px
+}
+
+.field-hint {
+    display: block;
+    margin-top: 6px;
+    color: #8e98a6;
+    font-size: 10px
+}
+
+.form-error {
+    margin-top: 16px;
+    padding: 10px 12px;
+    border: 1px solid #f0cfc7;
+    border-radius: 7px;
+    background: #fff3f0;
+    color: #b95e4c;
+    font-size: 11px
 }
 
 .field input,
