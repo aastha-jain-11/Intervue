@@ -1,4 +1,6 @@
+import type { ReactElement } from 'react'
 import { Route, Routes } from 'react-router-dom'
+import { ProtectedRoute } from '../auth/ProtectedRoute'
 import { AppShell } from '../components/layout/AppShell'
 import { CandidateCalendarPage } from '../pages/candidate/CandidateCalendarPage'
 import { CandidateDashboardPage } from '../pages/candidate/CandidateDashboardPage'
@@ -24,6 +26,11 @@ import { TACalendarPage } from '../pages/ta/TACalendarPage'
 import { TADashboardPage } from '../pages/ta/TADashboardPage'
 import { TAInterviewsPage } from '../pages/ta/TAInterviewsPage'
 import { InterviewerLoginPage } from '../pages/common/InterviewerLoginPage'
+import type { UserRole } from '../types/auth'
+
+function protectedPage(page: ReactElement, allowedRoles?: UserRole[]) {
+  return <ProtectedRoute allowedRoles={allowedRoles}><AppShell>{page}</AppShell></ProtectedRoute>
+}
 
 export function AppRoutes() {
   return <Routes>
@@ -33,28 +40,30 @@ export function AppRoutes() {
     <Route path="/login/candidate" element={<CandidateLoginPage />} />
     <Route path="/signup/candidate" element={<CandidateSignupPage />} />
     <Route path="/login/interviewer" element={<InterviewerLoginPage />} />
-    <Route path="*" element={<AppShell><Routes>
-      <Route path="/candidate/dashboard" element={<CandidateDashboardPage />} />
-      <Route path="/candidate/interviews" element={<CandidateInterviewsPage />} />
-      <Route path="/candidate/calendar" element={<CandidateCalendarPage />} />
-      <Route path="/candidate/notifications" element={<CandidateNotificationsPage />} />
-      <Route path="/candidate/apply" element={<CandidateApplicationPage />} />
-      <Route path="/ta/dashboard" element={<TADashboardPage />} />
-      <Route path="/ta/candidates" element={<CandidatesPage />} />
-      <Route path="/ta/candidates/:candidateId" element={<CandidateProfilePage />} />
-      <Route path="/ta/candidates/:candidateId/setup-interview" element={<InterviewSetupPage />} />
-      <Route path="/ta/interviews" element={<TAInterviewsPage />} />
-      <Route path="/ta/interviews/create" element={<InterviewSetupPage create />} />
-      <Route path="/ta/interviews/:interviewId/slots" element={<SlotRecommendationsPage />} />
-      <Route path="/ta/calendar" element={<TACalendarPage />} />
-      <Route path="/interviewer/dashboard" element={<InterviewerDashboardPage />} />
-      <Route path="/interviewer/interviews" element={<InterviewerInterviewsPage />} />
-      <Route path="/interviewer/interviews/:interviewId" element={<InterviewerDetailsPage />} />
-      <Route path="/interviewer/calendar" element={<InterviewerCalendarPage />} />
-      <Route path="/interviewer/notifications" element={<InterviewerNotificationsPage />} />
-      <Route path="/interviews/:interviewId" element={<InterviewDetailsPage />} />
-      <Route path="/notifications" element={<NotificationsPage />} />
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes></AppShell>} />
+
+    <Route path="/candidate/dashboard" element={protectedPage(<CandidateDashboardPage />, ['candidate'])} />
+    <Route path="/candidate/interviews" element={protectedPage(<CandidateInterviewsPage />, ['candidate'])} />
+    <Route path="/candidate/calendar" element={protectedPage(<CandidateCalendarPage />, ['candidate'])} />
+    <Route path="/candidate/notifications" element={protectedPage(<CandidateNotificationsPage />, ['candidate'])} />
+    <Route path="/candidate/apply" element={protectedPage(<CandidateApplicationPage />, ['candidate'])} />
+
+    <Route path="/ta/dashboard" element={protectedPage(<TADashboardPage />, ['ta_admin'])} />
+    <Route path="/ta/candidates" element={protectedPage(<CandidatesPage />, ['ta_admin'])} />
+    <Route path="/ta/candidates/:candidateId" element={protectedPage(<CandidateProfilePage />, ['ta_admin'])} />
+    <Route path="/ta/candidates/:candidateId/setup-interview" element={protectedPage(<InterviewSetupPage />, ['ta_admin'])} />
+    <Route path="/ta/interviews" element={protectedPage(<TAInterviewsPage />, ['ta_admin'])} />
+    <Route path="/ta/interviews/create" element={protectedPage(<InterviewSetupPage create />, ['ta_admin'])} />
+    <Route path="/ta/interviews/:interviewId/slots" element={protectedPage(<SlotRecommendationsPage />, ['ta_admin'])} />
+    <Route path="/ta/calendar" element={protectedPage(<TACalendarPage />, ['ta_admin'])} />
+
+    <Route path="/interviewer/dashboard" element={protectedPage(<InterviewerDashboardPage />, ['interviewer'])} />
+    <Route path="/interviewer/interviews" element={protectedPage(<InterviewerInterviewsPage />, ['interviewer'])} />
+    <Route path="/interviewer/interviews/:interviewId" element={protectedPage(<InterviewerDetailsPage />, ['interviewer'])} />
+    <Route path="/interviewer/calendar" element={protectedPage(<InterviewerCalendarPage />, ['interviewer'])} />
+    <Route path="/interviewer/notifications" element={protectedPage(<InterviewerNotificationsPage />, ['interviewer'])} />
+
+    <Route path="/interviews/:interviewId" element={protectedPage(<InterviewDetailsPage />)} />
+    <Route path="/notifications" element={protectedPage(<NotificationsPage />)} />
+    <Route path="*" element={<NotFoundPage />} />
   </Routes>
 }

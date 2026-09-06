@@ -1,19 +1,38 @@
 import { useState } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
+import { useAuth } from '../../auth/AuthContext'
+import type { UserRole } from '../../types/auth'
 
 function NavItem({ to, icon, children }: { to: string; icon: string; children: ReactNode }) {
   return <NavLink className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'} to={to}><span className="nav-icon">{icon}</span>{children}</NavLink>
 }
 
+function roleLabel(role: UserRole): string {
+  return role === 'candidate' ? 'Candidate' : role === 'interviewer' ? 'Interviewer' : 'Talent Acquisition'
+}
+
+function initials(name: string): string {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || '').join('') || 'I'
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
-  const location = useLocation()
-  const role = location.pathname.startsWith('/interviewer') ? 'interviewer' : location.pathname.startsWith('/candidate') ? 'candidate' : 'ta'
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const role = user?.role || 'candidate'
   const isCandidate = role === 'candidate'
   const isInterviewer = role === 'interviewer'
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const homePath = isCandidate ? '/candidate/dashboard' : isInterviewer ? '/interviewer/dashboard' : '/ta/dashboard'
   const notificationsPath = isCandidate ? '/candidate/notifications' : isInterviewer ? '/interviewer/notifications' : '/notifications'
+
+  async function handleLogout() {
+    try {
+      await logout()
+    } finally {
+      navigate('/login', { replace: true })
+    }
+  }
 
   return <div className="app-shell">
     <aside className={sidebarOpen ? 'sidebar open' : 'sidebar'}>
@@ -34,10 +53,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         <NavItem to={notificationsPath} icon="◌">Notifications <span className="nav-count">3</span></NavItem>
         {!isCandidate && <><p className="nav-label nav-spaced">Manage</p><NavItem to="/settings" icon="⚙">Settings</NavItem></>}
       </nav>
-      <div className="sidebar-bottom"><div className="help-card"><span className="help-icon">?</span><div><strong>Need a hand?</strong><small>Visit Help Center</small></div><span>↗</span></div><div className="profile-row"><div className="avatar avatar-indigo">{isCandidate ? 'RS' : 'AP'}</div><div><strong>{isCandidate ? 'Rahul Sharma' : 'Aarav Patel'}</strong><small>{isCandidate ? 'Software Engineer' : 'Talent Acquisition'}</small></div><span className="more">•••</span></div></div>
+      <div className="sidebar-bottom"><div className="help-card"><span className="help-icon">?</span><div><strong>Need a hand?</strong><small>Visit Help Center</small></div><span>↗</span></div><div className="profile-row"><div className="avatar avatar-indigo">{user ? initials(user.name) : 'I'}</div><div><strong>{user?.name || 'Intervue user'}</strong><small>{user ? roleLabel(user.role) : ''}</small></div><button className="more" type="button" onClick={() => void handleLogout()} aria-label="Log out">↪</button></div></div>
     </aside>
     <main className="main-area">
-      <header className="topbar"><button className="icon-btn menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle navigation">☰</button><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>{isCandidate ? 'Candidate portal' : isInterviewer ? 'Interviewer workspace' : 'Talent acquisition'}</strong></div><div className="top-actions"><button className="icon-btn" aria-label="Search">⌕</button><Link className="notification-bell" to={notificationsPath} aria-label="Notifications">♧<i>3</i></Link><div className="avatar avatar-indigo">{isCandidate ? 'RS' : 'AP'}</div></div></header>
+      <header className="topbar"><button className="icon-btn menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle navigation">☰</button><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>{roleLabel(role)}</strong></div><div className="top-actions"><button className="icon-btn" aria-label="Search">⌕</button><Link className="notification-bell" to={notificationsPath} aria-label="Notifications">♧<i>3</i></Link><div className="avatar avatar-indigo">{user ? initials(user.name) : 'I'}</div></div></header>
       <div className="content">{children}</div>
     </main>
   </div>

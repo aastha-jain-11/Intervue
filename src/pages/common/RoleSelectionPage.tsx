@@ -1,4 +1,7 @@
-import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../auth/AuthContext'
+import { dashboardPathForRole } from '../../auth/ProtectedRoute'
 
 const roles = [
   { path: '/login/ta', label: 'Talent acquisition', title: 'Lead the hiring flow', description: 'Screen candidates, coordinate panels, and find the right time for every interview.', icon: '◎', accent: 'role-indigo' },
@@ -7,5 +10,12 @@ const roles = [
 ]
 
 export function RoleSelectionPage() {
+  const navigate = useNavigate()
+  const { user, loading } = useAuth()
+
+  useEffect(() => {
+    if (!loading && user) navigate(dashboardPathForRole(user.role), { replace: true })
+  }, [loading, navigate, user])
+
   return <main className="role-selection"><div className="role-selection-top"><Link className="brand" to="/" aria-label="Go to Intervue home"><span className="brand-mark">I</span><span>intervue</span></Link><span className="role-help">Smart interview scheduling for modern teams</span></div><div className="role-selection-intro"><div className="eyebrow">Welcome to Intervue</div><h1>Where are you joining from?</h1><p>Choose your workspace to continue. You can switch roles any time by returning here.</p></div><div className="role-grid">{roles.map(role => <Link className={`role-card ${role.accent}`} to={role.path} key={role.path}><span className="role-icon">{role.icon}</span><span className="role-label">{role.label}</span><h2>{role.title}</h2><p>{role.description}</p><span className="role-cta">Continue <b>→</b></span></Link>)}</div><p className="role-footer">Intervue · One thoughtful workflow from shortlist to scheduled interview.</p></main>
 }
