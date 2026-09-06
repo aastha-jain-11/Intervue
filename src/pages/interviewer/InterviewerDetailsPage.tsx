@@ -1,1 +1,11 @@
-export { InterviewerDetailsPage } from './InterviewerPages'
+import { useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { candidates, interviews, interviewers } from '../../data/demoData'
+import { Badge, Button, CandidateAvatar, Detail, PageHeader } from '../../components/common'
+
+export function InterviewerDetailsPage() {
+	const { interviewId = 'interview-1' } = useParams()
+	const interview = interviews.find(item => item.id === interviewId) || interviews[0]
+	const [accepted, setAccepted] = useState(false)
+	return <><div className="back-link"><Link to="/interviewer/interviews">← Back to my interviews</Link></div><PageHeader eyebrow="Interview request" title={accepted ? 'Slot accepted' : 'Review interview request'} description="Review the context before confirming your availability." action={<Badge tone={accepted ? 'success' : 'warning'}>{accepted ? 'Accepted' : 'Awaiting response'}</Badge>} /><div className="details-layout"><div className="details-main"><section className="panel interview-hero-card"><div className="candidate-identity"><CandidateAvatar candidate={candidates[0]} large /><div><div className="eyebrow">{interview.round}</div><h2>{interview.candidate}</h2><p>{interview.role} · ATS score <strong>94%</strong></p></div></div><div className="interview-facts"><Detail label="Proposed date" value={interview.date} /><Detail label="Time" value={interview.time} /><Detail label="Duration" value="60 minutes" /><Detail label="Mode" value="Online" /></div></section><section className="panel"><div className="panel-head"><div><h2>Interview panel</h2><p>People joining this interview</p></div></div>{interviewers.slice(0, 2).map(item => <div className="panel-person" key={item.name}><div className="avatar avatar-indigo">{item.name.split(' ').map(word => word[0]).join('')}</div><div><strong>{item.name}</strong><span>{item.title}</span></div><Badge>{item.type}</Badge></div>)}</section></div><aside className="details-aside"><section className="panel action-panel"><div className="section-kicker">RECOMMENDATION</div><h2>Great fit for your expertise</h2><p>You have strong overlap with the candidate's backend and system design experience.</p><div className="big-match"><strong>{interview.score}%</strong><span>scheduling score</span></div>{accepted ? <Button to="/interviews/interview-1">View confirmed interview</Button> : <Button onClick={() => setAccepted(true)}>✓ Accept slot</Button>}</section></aside></div></>
+}
