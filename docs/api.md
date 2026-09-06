@@ -31,6 +31,24 @@ Email/password login and Google OAuth both issue the backend's application JWT. 
 
 Authentication middleware verifies the JWT and attaches the user ID and canonical role to the request. Reusable RBAC middleware enforces role permissions before controllers run.
 
+## MVP interview workflow
+
+Browser clients call only this Node API; they must never call the Python services directly. All `/api` endpoints below use `Authorization: Bearer <application JWT>` and the standard `{ "success": true, "data": ... }` response envelope.
+
+| Method | Endpoint | Role | Request | Purpose |
+|---|---|---|---|---|
+| POST | `/api/jobs/:jobId/applications` | candidate | `{ "resumeUrl"?: "https://..." }` | Apply once to an open job. |
+| GET | `/api/applications` | candidate, ta_admin | None | Candidate sees own applications; TA sees all. |
+| GET | `/api/applications/:applicationId` | owner, ta_admin | None | Read application and pipeline status. |
+| POST | `/api/applications/:applicationId/screening` | owner, ta_admin | Raw `application/pdf` body; optional `x-resume-filename` header | Run resume screening and persist its result. |
+| POST | `/api/applications/:applicationId/interviews` | ta_admin | `{ "roundType": "technical", "durationMins": 45, "pipelineStageId"?: "uuid" }` | Create an interview. |
+| GET | `/api/interviews/:interviewId` | candidate owner, ta_admin | None | Read interview details. |
+| PATCH | `/api/interviews/:interviewId` | ta_admin | `{ "durationMins"?: 45, "status"?: "cancelled" }` | Update basic interview fields. |
+| POST | `/api/interviews/:interviewId/recommendations` | ta_admin | None | Rank PostgreSQL interviewer profiles. |
+| POST | `/api/interviews/:interviewId/auto-schedule` | ta_admin | None | Select the best interviewer and a conflict-free slot, then schedule and notify. |
+
+`POST /api/interviews/:interviewId/auto-schedule` returns the scheduled interview plus `matchScore`, `candidateAvailable`, `interviewerAvailable`, `calendarEventCreated`, and `notificationSent`. It returns `409 NO_FEASIBLE_SLOT` when no candidate/interviewer interval can fit the interview, or `409 SCHEDULING_CONFLICT` if final conflict checks prevent every recommended option. Notification failure does not reverse a successful booking; `notificationSent` is then `false`.
+
 ## Data representation
 
 - Candidate and Interviewer are one-to-one profiles associated with User accounts.
