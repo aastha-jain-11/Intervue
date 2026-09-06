@@ -1,6 +1,6 @@
 # Intervue API Plan
 
-This document defines the planned API surface. The routes are intentionally not implemented in the foundation commit.
+This document defines the API surface. Phase 1 authentication and the current-user endpoint are implemented.
 
 ## Authentication and users
 
@@ -8,7 +8,7 @@ This document defines the planned API surface. The routes are intentionally not 
 |---:|---|---|---|---|---|
 | 1 | POST | `/auth/register` | Create an account | Public | None |
 | 2 | POST | `/auth/login` | Authenticate a user | Public | None |
-| 3 | GET | `/auth/me` | Return the authenticated user | JWT | Any authenticated user |
+| 3 | GET | `/users/me` | Return the authenticated user | JWT | Any authenticated user |
 | 4 | POST | `/auth/refresh` | Refresh an access token | Refresh token | Any authenticated user |
 | 5 | GET | `/users` | List users | JWT | Recruiter, TA admin |
 | 6 | GET | `/users/:id` | Get a user | JWT | Recruiter, interviewer, TA admin |
@@ -57,7 +57,7 @@ This document defines the planned API surface. The routes are intentionally not 
 Each endpoint will follow this path:
 
 ```text
-Route -> Controller -> Service -> Prisma repository/provider
+Route -> Middleware -> Controller -> Service -> Prisma repository/provider
 ```
 
 Calendar integrations and notification delivery will be implemented behind provider interfaces. Audit records will be written by the relevant services rather than exposed as a feature API in this initial list.
@@ -68,5 +68,6 @@ Calendar integrations and notification delivery will be implemented behind provi
 - `User.timezone` and `Candidate.timezone` store display/conversion preferences.
 - Conversion to local time occurs in the service or API presentation layer.
 - Availability ownership is constrained by `ownerType`: candidate slots use `candidateId` only; interviewer slots use `userId` only.
+- Public registration permits only `recruiter` and `interviewer` roles. A `ta_admin` account must be created later through a controlled seed or one-time administrative provisioning process, never through public registration.
 - TODO: redact sensitive query parameters from request logs during security hardening.
 - TODO: redact sensitive error messages before they are written to logs.
