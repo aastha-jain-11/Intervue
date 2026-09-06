@@ -3,8 +3,11 @@ import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
 import { after, test } from 'node:test';
 import { prisma } from '../src/config/database.js';
+import { env } from '../src/config/env.js';
 import { AppError } from '../src/middleware/error.middleware.js';
 import { requireRole } from '../src/middleware/rbac.middleware.js';
+import { authenticateGoogleUser } from '../src/modules/auth/auth.service.js';
+import jwt from 'jsonwebtoken';
 
 process.env.NODE_ENV = 'test';
 process.env.PORT = '3000';
@@ -76,6 +79,8 @@ async function registerUser(url: string, email = uniqueEmail()): Promise<ApiResp
 }
 
 after(async () => {
+  await prisma.oAuthAccount.deleteMany({ where: { user: { email: { startsWith: 'oauth-test-' } } } });
+  await prisma.user.deleteMany({ where: { email: { startsWith: 'oauth-test-' } } });
   await prisma.user.deleteMany({ where: { email: { startsWith: testEmailPrefix } } });
   await prisma.$disconnect();
 });
@@ -198,4 +203,103 @@ test('RBAC denies an unauthorized role', () => {
   assert(receivedError instanceof AppError);
   assert.equal((receivedError as AppError).statusCode, 403);
   assert.equal((receivedError as AppError).code, 'FORBIDDEN');
+});
+
+test('existing user can be linked to a verified Google identity', async () => {
+  const user = await prisma.user.create({
+    data: {
+      name: 'Existing OAuth Link',
+      email: 'oauth-test-existing@example.com',
+      passwordHash: 'existing-password-hash',
+      role: 'interviewer',
+      timezone: 'UTC',
+      skillTags: [],
+    },
+  });
+
+  const result = await authenticateGoogleUser({
+    providerAccountId: 'google-existing-account',
+    email: user.email,
+    name: user.name,
+  });
+  const account = await prisma.oAuthAccount.findUnique({
+    where: {
+      provider_providerAccountId: {
+        provider: 'google',
+        providerAccountId: 'google-existing-account',
+      },
+    },
+  });
+
+  assert.equal(result.user.id, user.id);
+  assert.equal(account?.userId, user.id);
+  assert.equal(result.user.passwordHash, undefined);
+});
+
+test('existing OAuth account resolves to its associated user', async () => {
+  const user = await prisma.user.create({
+    data: {
+      name: 'OAuth Account Owner',
+      email: 'oauth-test-account@example.com',
+      passwordHash: 'existing-password-hash',
+      role: 'recruiter',
+      timezone: 'UTC',
+      skillTags: [],
+      oauthAccounts: {
+        create: { provider: 'google', providerAccountId: 'google-known-account' },
+      },
+    },
+  });
+
+  const result = await authenticateGoogleUser({
+    providerAccountId: 'google-known-account',
+    email: 'different@example.com',
+    name: 'Ignored Name',
+  });
+
+  assert.equal(result.user.id, user.id);
+});
+
+test('new Google identity creates a recruiter account and application JWT', async () => {
+  const result = await authenticateGoogleUser({
+    providerAccountId: 'google-new-account',
+    email: 'oauth-test-new@example.com',
+    name: 'New OAuth User',
+  });
+  const createdUser = await prisma.user.findUnique({
+    where: { email: 'oauth-test-new@example.com' },
+    include: { oauthAccounts: true },
+  });
+  const tokenPayload = jwt.verify(result.token, env.JWT_SECRET) as { id: string; role: string };
+
+  assert(createdUser);
+  assert.equal(result.user.role, 'recruiter');
+  assert.notEqual(result.user.role, 'ta_admin');
+  assert.equal(createdUser.oauthAccounts[0]?.provider, 'google');
+  assert.equal(tokenPayload.id, createdUser.id);
+  assert.equal(tokenPayload.role, 'recruiter');
+  assert.equal(result.user.passwordHash, undefined);
+
+  const { server, url } = await startTestServer();
+  try {
+    const meResponse = await request(`${url}/users/me`, {
+      headers: { authorization: `Bearer ${result.token}` },
+    });
+    assert.equal(meResponse.status, 200);
+    assert.equal(meResponse.body.data?.user?.id, createdUser.id);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test('OAuth callback failure uses the centralized error response', async () => {
+  const { server, url } = await startTestServer();
+
+  try {
+    const response = await request(`${url}/auth/google/callback?error=access_denied`);
+    assert.equal(response.status, 401);
+    assert.equal(response.body.error?.code, 'OAUTH_FAILED');
+  } finally {
+    await closeServer(server);
+  }
 });

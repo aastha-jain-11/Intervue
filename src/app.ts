@@ -1,4 +1,5 @@
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
 import { env } from './config/env';
@@ -12,7 +13,8 @@ export const app = express();
 
 app.disable('x-powered-by');
 app.use(helmet());
-app.use(cors({ origin: env.CORS_ORIGIN }));
+app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+app.use(cookieParser());
 app.use(express.json({ limit: '1mb' }));
 app.use(requestLogger);
 

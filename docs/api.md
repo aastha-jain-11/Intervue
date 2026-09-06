@@ -9,10 +9,12 @@ This document defines the API surface. Phase 1 authentication and the current-us
 | 1 | POST | `/auth/register` | Create an account | Public | None |
 | 2 | POST | `/auth/login` | Authenticate a user | Public | None |
 | 3 | GET | `/users/me` | Return the authenticated user | JWT | Any authenticated user |
-| 4 | POST | `/auth/refresh` | Refresh an access token | Refresh token | Any authenticated user |
-| 5 | GET | `/users` | List users | JWT | Recruiter, TA admin |
-| 6 | GET | `/users/:id` | Get a user | JWT | Recruiter, interviewer, TA admin |
-| 7 | PATCH | `/users/:id` | Update user details | JWT | Owner, TA admin |
+| 4 | GET | `/auth/google` | Start Google OAuth | Public | None |
+| 5 | GET | `/auth/google/callback` | Complete Google OAuth and issue an application JWT cookie | Google OAuth | None |
+| 6 | POST | `/auth/refresh` | Refresh an access token | Refresh token | Any authenticated user |
+| 7 | GET | `/users` | List users | JWT | Recruiter, TA admin |
+| 8 | GET | `/users/:id` | Get a user | JWT | Recruiter, interviewer, TA admin |
+| 9 | PATCH | `/users/:id` | Update user details | JWT | Owner, TA admin |
 
 ## Candidates and jobs
 
@@ -69,5 +71,8 @@ Calendar integrations and notification delivery will be implemented behind provi
 - Conversion to local time occurs in the service or API presentation layer.
 - Availability ownership is constrained by `ownerType`: candidate slots use `candidateId` only; interviewer slots use `userId` only.
 - Public registration permits only `recruiter` and `interviewer` roles. A `ta_admin` account must be created later through a controlled seed or one-time administrative provisioning process, never through public registration.
+- Google OAuth verifies the Google ID token, links verified emails to existing users, or creates a new `recruiter` user. It never creates `ta_admin` accounts automatically.
+- The callback stores the application JWT in an HTTP-only cookie and redirects to `CORS_ORIGIN`; it does not put a JWT in a URL or store Google access/refresh tokens.
+- Required Google environment variables are `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL`.
 - TODO: redact sensitive query parameters from request logs during security hardening.
 - TODO: redact sensitive error messages before they are written to logs.

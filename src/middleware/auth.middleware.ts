@@ -20,13 +20,14 @@ const validRoles = new Set<AuthenticatedUser['role']>(['recruiter', 'interviewer
 
 export const authenticate: RequestHandler = (request: Request, _response: Response, next: NextFunction) => {
   const authorization = request.header('authorization');
+  const token = authorization?.startsWith('Bearer ')
+    ? authorization.slice('Bearer '.length).trim()
+    : request.cookies?.intervue_auth;
 
-  if (!authorization?.startsWith('Bearer ')) {
+  if (!token) {
     next(new AppError(401, 'UNAUTHORIZED', 'Authentication required'));
     return;
   }
-
-  const token = authorization.slice('Bearer '.length).trim();
 
   try {
     const payload = jwt.verify(token, env.JWT_SECRET);
