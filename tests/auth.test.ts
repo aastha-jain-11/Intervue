@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import assert from 'node:assert/strict';
+import bcrypt from 'bcryptjs';
 import { createServer, type Server } from 'node:http';
 import { after, test } from 'node:test';
 import { prisma } from '../src/config/database.js';
@@ -54,6 +55,11 @@ async function request(url: string, options: RequestInit = {}): Promise<ApiRespo
   return { status: response.status, body: (await response.json()) as ApiResponse['body'] };
 }
 
+async function requestWithHeaders(url: string, options: RequestInit = {}): Promise<ApiResponse & { headers: Headers }> {
+  const response = await fetch(url, options);
+  return { status: response.status, body: (await response.json()) as ApiResponse['body'], headers: response.headers };
+}
+
 function jsonRequest(method: string, body: Record<string, string>, token?: string): RequestInit {
   return {
     method,
@@ -69,12 +75,12 @@ function uniqueEmail(): string {
   return `${testEmailPrefix}${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
 }
 
-async function registerUser(url: string, email = uniqueEmail()): Promise<ApiResponse> {
+async function registerUser(url: string, role: 'candidate' | 'interviewer' = 'candidate', email = uniqueEmail()): Promise<ApiResponse> {
   return request(`${url}/auth/register`, jsonRequest('POST', {
     name: 'Phase One Tester',
     email,
     password: 'correct-horse-battery-staple',
-    role: 'recruiter',
+    role,
   }));
 }
 
@@ -104,8 +110,8 @@ test('duplicate email registration is rejected', async () => {
   const email = uniqueEmail();
 
   try {
-    assert.equal((await registerUser(url, email)).status, 201);
-    const duplicate = await registerUser(url, email);
+    assert.equal((await registerUser(url, 'candidate', email)).status, 201);
+    const duplicate = await registerUser(url, 'candidate', email);
     assert.equal(duplicate.status, 409);
     assert.equal(duplicate.body.error?.code, 'EMAIL_ALREADY_REGISTERED');
   } finally {
@@ -118,7 +124,7 @@ test('successful login returns a JWT and public user', async () => {
   const email = uniqueEmail();
 
   try {
-    await registerUser(url, email);
+    await registerUser(url, 'candidate', email);
     const response = await request(`${url}/auth/login`, jsonRequest('POST', {
       email,
       password: 'correct-horse-battery-staple',
@@ -138,13 +144,48 @@ test('invalid password is rejected', async () => {
   const email = uniqueEmail();
 
   try {
-    await registerUser(url, email);
+    await registerUser(url, 'candidate', email);
     const response = await request(`${url}/auth/login`, jsonRequest('POST', {
       email,
       password: 'wrong-password',
     }));
     assert.equal(response.status, 401);
     assert.equal(response.body.error?.code, 'INVALID_CREDENTIALS');
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test('logout succeeds and clears the OAuth authentication cookie', async () => {
+  const { server, url } = await startTestServer();
+
+  try {
+    const response = await requestWithHeaders(`${url}/auth/logout`, {
+      method: 'POST',
+      headers: { cookie: 'intervue_auth=application-jwt' },
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body, {
+      success: true,
+      data: { message: 'Logged out successfully' },
+    });
+    assert.match(response.headers.get('set-cookie') ?? '', /intervue_auth=;/);
+    assert.match(response.headers.get('set-cookie') ?? '', /Expires=Thu, 01 Jan 1970 00:00:00 GMT/);
+    assert.match(response.headers.get('set-cookie') ?? '', /HttpOnly/);
+    assert.match(response.headers.get('set-cookie') ?? '', /SameSite=Lax/);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test('logout succeeds when the authentication cookie is absent', async () => {
+  const { server, url } = await startTestServer();
+
+  try {
+    const response = await request(`${url}/auth/logout`, { method: 'POST' });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.success, true);
   } finally {
     await closeServer(server);
   }
@@ -173,7 +214,7 @@ test('valid JWT returns the authenticated user from /users/me', async () => {
   const email = uniqueEmail();
 
   try {
-    await registerUser(url, email);
+    await registerUser(url, 'candidate', email);
     const loginResponse = await request(`${url}/auth/login`, jsonRequest('POST', {
       email,
       password: 'correct-horse-battery-staple',
@@ -193,7 +234,7 @@ test('valid JWT returns the authenticated user from /users/me', async () => {
 });
 
 test('RBAC denies an unauthorized role', () => {
-  const request = { auth: { id: 'user-id', role: 'recruiter' as const } } as never;
+  const request = { auth: { id: 'user-id', role: 'candidate' as const } } as never;
   let receivedError: unknown;
 
   requireRole('ta_admin')(request, {} as never, (error) => {
@@ -213,7 +254,17 @@ test('existing user can be linked to a verified Google identity', async () => {
       passwordHash: 'existing-password-hash',
       role: 'interviewer',
       timezone: 'UTC',
-      skillTags: [],
+      interviewerProfile: {
+        create: {
+          name: 'Existing OAuth Link',
+          email: 'oauth-test-existing@example.com',
+          jobRole: 'Engineer',
+          interviewerType: 'technical',
+          experienceYears: 5,
+          timezone: 'UTC',
+          skills: [],
+        },
+      },
     },
   });
 
@@ -242,9 +293,15 @@ test('existing OAuth account resolves to its associated user', async () => {
       name: 'OAuth Account Owner',
       email: 'oauth-test-account@example.com',
       passwordHash: 'existing-password-hash',
-      role: 'recruiter',
+      role: 'candidate',
       timezone: 'UTC',
-      skillTags: [],
+      candidateProfile: {
+        create: {
+          name: 'OAuth Account Owner',
+          email: 'oauth-test-account@example.com',
+          timezone: 'UTC',
+        },
+      },
       oauthAccounts: {
         create: { provider: 'google', providerAccountId: 'google-known-account' },
       },
@@ -260,7 +317,7 @@ test('existing OAuth account resolves to its associated user', async () => {
   assert.equal(result.user.id, user.id);
 });
 
-test('new Google identity creates a recruiter account and application JWT', async () => {
+test('new Google identity creates a candidate account and application JWT', async () => {
   const result = await authenticateGoogleUser({
     providerAccountId: 'google-new-account',
     email: 'oauth-test-new@example.com',
@@ -268,16 +325,17 @@ test('new Google identity creates a recruiter account and application JWT', asyn
   });
   const createdUser = await prisma.user.findUnique({
     where: { email: 'oauth-test-new@example.com' },
-    include: { oauthAccounts: true },
+    include: { oauthAccounts: true, candidateProfile: true },
   });
   const tokenPayload = jwt.verify(result.token, env.JWT_SECRET) as { id: string; role: string };
 
   assert(createdUser);
-  assert.equal(result.user.role, 'recruiter');
+  assert.equal(result.user.role, 'candidate');
   assert.notEqual(result.user.role, 'ta_admin');
   assert.equal(createdUser.oauthAccounts[0]?.provider, 'google');
+  assert.equal(createdUser.candidateProfile?.email, 'oauth-test-new@example.com');
   assert.equal(tokenPayload.id, createdUser.id);
-  assert.equal(tokenPayload.role, 'recruiter');
+  assert.equal(tokenPayload.role, 'candidate');
   assert.equal(result.user.passwordHash, undefined);
 
   const { server, url } = await startTestServer();
@@ -287,6 +345,58 @@ test('new Google identity creates a recruiter account and application JWT', asyn
     });
     assert.equal(meResponse.status, 200);
     assert.equal(meResponse.body.data?.user?.id, createdUser.id);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test('interviewer registration succeeds and creates an interviewer profile', async () => {
+  const { server, url } = await startTestServer();
+  const email = uniqueEmail();
+
+  try {
+    const response = await registerUser(url, 'interviewer', email);
+    assert.equal(response.status, 201);
+    assert.equal(response.body.data?.user?.role, 'interviewer');
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { interviewerProfile: true },
+    });
+    assert.equal(user?.interviewerProfile?.userId, user?.id);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test('ta_admin authenticates but cannot be publicly registered', async () => {
+  const { server, url } = await startTestServer();
+  const email = uniqueEmail();
+
+  try {
+    const rejected = await request(`${url}/auth/register`, jsonRequest('POST', {
+      name: 'Public TA Attempt',
+      email,
+      password: 'correct-horse-battery-staple',
+      role: 'ta_admin',
+    }));
+    assert.equal(rejected.status, 400);
+
+    const user = await prisma.user.create({
+      data: {
+        name: 'Controlled TA',
+        email: `phase1-test-ta-${Date.now()}@example.com`,
+        passwordHash: await bcrypt.hash('correct-horse-battery-staple', 12),
+        role: 'ta_admin',
+        timezone: 'UTC',
+      },
+    });
+    const loginResponse = await request(`${url}/auth/login`, jsonRequest('POST', {
+      email: user.email,
+      password: 'correct-horse-battery-staple',
+    }));
+    assert.equal(loginResponse.status, 200);
+    assert.equal(loginResponse.body.data?.user?.role, 'ta_admin');
   } finally {
     await closeServer(server);
   }

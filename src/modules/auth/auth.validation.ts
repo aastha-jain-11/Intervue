@@ -8,7 +8,7 @@ export const registerSchema = z.object({
   name: nameSchema,
   email: emailSchema,
   password: passwordSchema,
-  role: z.enum(['recruiter', 'interviewer']),
+  role: z.enum(['candidate', 'interviewer']),
 });
 
 export const loginSchema = z.object({

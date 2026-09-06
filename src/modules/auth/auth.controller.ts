@@ -1,6 +1,6 @@
 import { RequestHandler } from 'express';
 import { createOAuthState, exchangeGoogleCode, getGoogleAuthorizationUrl } from './google.provider.js';
-import { authenticateGoogleUser, loginUser, registerUser } from './auth.service.js';
+import { authenticateGoogleUser, loginUser, logoutUser, registerUser } from './auth.service.js';
 import type { LoginInput, RegisterInput } from './auth.validation.js';
 import { AppError } from '../../middleware/error.middleware.js';
 import { env } from '../../config/env.js';
@@ -21,6 +21,20 @@ export const login: RequestHandler = async (request, response, next) => {
   try {
     const result = await loginUser(request.body as LoginInput);
     response.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const logout: RequestHandler = (_request, response, next) => {
+  try {
+    logoutUser();
+    response.clearCookie(authCookie, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: env.NODE_ENV === 'production',
+    });
+    response.json({ success: true, data: { message: 'Logged out successfully' } });
   } catch (error) {
     next(error);
   }

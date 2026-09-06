@@ -1,78 +1,39 @@
-# Intervue API Plan
+# Intervue API
 
-This document defines the API surface. Phase 1 authentication and the current-user endpoint are implemented.
+The backend currently exposes the authentication and current-user endpoints below. Future domain APIs will be documented when implemented.
 
-## Authentication and users
+## Authentication roles
 
-| # | Method | Endpoint | Purpose | Authentication | Roles |
-|---:|---|---|---|---|---|
-| 1 | POST | `/auth/register` | Create an account | Public | None |
-| 2 | POST | `/auth/login` | Authenticate a user | Public | None |
-| 3 | GET | `/users/me` | Return the authenticated user | JWT | Any authenticated user |
-| 4 | GET | `/auth/google` | Start Google OAuth | Public | None |
-| 5 | GET | `/auth/google/callback` | Complete Google OAuth and issue an application JWT cookie | Google OAuth | None |
-| 6 | POST | `/auth/refresh` | Refresh an access token | Refresh token | Any authenticated user |
-| 7 | GET | `/users` | List users | JWT | Recruiter, TA admin |
-| 8 | GET | `/users/:id` | Get a user | JWT | Recruiter, interviewer, TA admin |
-| 9 | PATCH | `/users/:id` | Update user details | JWT | Owner, TA admin |
+The canonical roles are `candidate`, `interviewer`, and `ta_admin`. There is no `recruiter` role.
 
-## Candidates and jobs
+- `candidate`: owns candidate profile, applications, interview information, and availability.
+- `interviewer`: owns interviewer profile, availability, and assigned interviews.
+- `ta_admin`: manages recruitment and interview orchestration.
 
-| # | Method | Endpoint | Purpose | Authentication | Roles |
-|---:|---|---|---|---|---|
-| 8 | POST | `/candidates` | Create a candidate | JWT | Recruiter, TA admin |
-| 9 | GET | `/candidates` | List candidates | JWT | Recruiter, interviewer, TA admin |
-| 10 | GET | `/candidates/:id` | Get candidate details | JWT | Recruiter, interviewer, TA admin |
-| 11 | PATCH | `/candidates/:id` | Update candidate details | JWT | Recruiter, TA admin |
-| 12 | POST | `/jobs` | Create a job | JWT | Recruiter, TA admin |
-| 13 | GET | `/jobs` | List jobs | JWT | Recruiter, interviewer, TA admin |
-| 14 | GET | `/jobs/:id` | Get job details | JWT | Recruiter, interviewer, TA admin |
-| 15 | PATCH | `/jobs/:id` | Update a job | JWT | Recruiter, TA admin |
+Public registration permits only `candidate` and `interviewer`. `ta_admin` accounts must be provisioned through a controlled administrative process.
 
-## Applications and pipeline
+## Authentication endpoints
 
-| # | Method | Endpoint | Purpose | Authentication | Roles |
-|---:|---|---|---|---|---|
-| 16 | POST | `/applications` | Create an application | JWT | Recruiter, TA admin |
-| 17 | GET | `/applications/:id` | Get an application | JWT | Recruiter, interviewer, TA admin |
-| 18 | GET | `/candidates/:candidateId/applications` | List candidate applications | JWT | Recruiter, interviewer, TA admin |
-| 19 | GET | `/jobs/:jobId/applications` | List job applications | JWT | Recruiter, interviewer, TA admin |
-| 20 | POST | `/applications/:applicationId/stages` | Add a pipeline stage | JWT | Recruiter, TA admin |
-| 21 | PATCH | `/stages/:stageId` | Update a pipeline stage | JWT | Recruiter, TA admin |
-| 22 | POST | `/stages/:stageId/decision` | Record a stage decision | JWT | Recruiter, interviewer, TA admin |
+| Method | Endpoint | Purpose | Authentication |
+|---|---|---|---|
+| POST | `/auth/register` | Create a candidate or interviewer account and profile | Public |
+| POST | `/auth/login` | Authenticate with email and password and issue an application JWT | Public |
+| POST | `/auth/logout` | Clear the OAuth application-JWT cookie and confirm logout | Public |
+| GET | `/auth/google` | Start Google OAuth authorization-code flow | Public |
+| GET | `/auth/google/callback` | Verify Google identity, link/create a local account, and issue an application JWT cookie | Google OAuth |
+| GET | `/users/me` | Return the authenticated user without `passwordHash` | JWT or OAuth cookie |
 
-## Interviews and scheduling
+## Authentication flow
 
-| # | Method | Endpoint | Purpose | Authentication | Roles |
-|---:|---|---|---|---|---|
-| 23 | POST | `/interviews` | Create an interview request | JWT | Recruiter, TA admin |
-| 24 | GET | `/interviews/:id` | Get interview details | JWT | Recruiter, interviewer, TA admin |
-| 25 | PATCH | `/interviews/:id` | Update interview details | JWT | Recruiter, TA admin |
-| 26 | POST | `/interviews/:id/cancel` | Cancel an interview | JWT | Recruiter, TA admin |
-| 27 | POST | `/interviews/:id/availability` | Submit availability slots | JWT | Candidate-facing auth, interviewer |
-| 28 | GET | `/interviews/:id/availability` | View submitted availability | JWT | Recruiter, interviewer, TA admin |
-| 29 | POST | `/interviews/:id/book` | Book a slot and create a calendar event | JWT | Recruiter, TA admin |
-| 30 | POST | `/interviews/:id/notifications` | Queue interview notifications | JWT | Recruiter, TA admin |
+Email/password login and Google OAuth both issue the backend's application JWT. Protected requests may send it as `Authorization: Bearer <token>`. Google OAuth stores the application JWT in an HTTP-only cookie and never stores Google access or refresh tokens.
 
-## Architecture mapping
+`POST /auth/logout` returns `{ "success": true, "data": { "message": "Logged out successfully" } }`. For OAuth cookie authentication, the backend clears the `intervue_auth` HTTP-only cookie. Bearer JWTs are stateless and are not invalidated by this endpoint; the frontend must discard its stored bearer token.
 
-Each endpoint will follow this path:
+Authentication middleware verifies the JWT and attaches the user ID and canonical role to the request. Reusable RBAC middleware enforces role permissions before controllers run.
 
-```text
-Route -> Middleware -> Controller -> Service -> Prisma repository/provider
-```
+## Data representation
 
-Calendar integrations and notification delivery will be implemented behind provider interfaces. Audit records will be written by the relevant services rather than exposed as a feature API in this initial list.
-
-## Data and security notes
-
-- Scheduling timestamps are stored as UTC `DateTime` values.
-- `User.timezone` and `Candidate.timezone` store display/conversion preferences.
-- Conversion to local time occurs in the service or API presentation layer.
-- Availability ownership is constrained by `ownerType`: candidate slots use `candidateId` only; interviewer slots use `userId` only.
-- Public registration permits only `recruiter` and `interviewer` roles. A `ta_admin` account must be created later through a controlled seed or one-time administrative provisioning process, never through public registration.
-- Google OAuth verifies the Google ID token, links verified emails to existing users, or creates a new `recruiter` user. It never creates `ta_admin` accounts automatically.
-- The callback stores the application JWT in an HTTP-only cookie and redirects to `CORS_ORIGIN`; it does not put a JWT in a URL or store Google access/refresh tokens.
-- Required Google environment variables are `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL`.
-- TODO: redact sensitive query parameters from request logs during security hardening.
-- TODO: redact sensitive error messages before they are written to logs.
+- Candidate and Interviewer are one-to-one profiles associated with User accounts.
+- Availability is represented through normalized UTC `AvailabilitySlot` rows rather than JSON so scheduling can query, index, intersect, and transition slots safely.
+- OAuth accounts are stored separately with a unique `(provider, providerAccountId)` pair.
+- AuditLog remains separate from ModelRun and records business/security actions.

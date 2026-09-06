@@ -8,7 +8,7 @@ datasource db {
 }
 
 enum UserRole {
-  recruiter
+  candidate
   interviewer
   ta_admin
 }
@@ -25,24 +25,6 @@ enum RoundType {
   technical
   managerial
   HR
-}
-
-enum PipelineStatus {
-  pending
-  scheduled
-  completed
-  selected
-  rejected
-  no_show
-}
-
-enum InterviewStatus {
-  requested
-  slots_generated
-  booked
-  completed
-  rescheduled
-  cancelled
 }
 
 enum AvailabilityOwnerType {
@@ -63,45 +45,105 @@ enum ParticipantRole {
   observer
 }
 
-enum CalendarEventStatus {
+enum JobStatus {
+  draft
+  open
+  closed
+}
+
+enum ApplicationScreeningStatus {
+  pending
+  processing
+  passed
+  failed
+}
+
+enum ApplicationStatus {
+  submitted
+  screening
+  shortlisted
+  interviewing
+  selected
+  rejected
+}
+
+enum PipelineStageStatus {
+  pending
+  in_progress
   scheduled
+  completed
+  selected
+  rejected
+  no_show
   cancelled
+}
+
+enum InterviewStatus {
+  pending
+  interviewer_requested
+  confirmed
+  scheduled
+  completed
+  cancelled
+  no_show
+}
+
+enum InterviewRequestStatus {
+  pending
+  accepted
+  declined
+  expired
+  cancelled
+}
+
+enum CalendarEventStatus {
+  created
   updated
+  cancelled
 }
 
 enum NotificationChannel {
   email
-  sms
   in_app
+  sms
 }
 
 enum NotificationStatus {
   pending
   sent
+  delivered
   failed
-  read
+}
+
+enum ModelType {
+  resume_screening
+  interviewer_matching
+  slot_recommendation
+}
+
+enum ModelRunStatus {
+  processing
+  completed
+  failed
 }
 
 model User {
-  id              String           @id @default(uuid())
+  id              String   @id @default(uuid())
   name            String
-  email           String           @unique
+  email           String   @unique
   passwordHash    String
   role            UserRole
-  interviewerType InterviewerType?
   timezone        String
-  workingHours    Json?
-  skillTags       String[]
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  participants    InterviewParticipant[]
-  availability    AvailabilitySlot[]
-  createdJobs     Job[]              @relation("JobCreator")
-  auditLogs       AuditLog[]       @relation("AuditActor")
-  decidedStages   PipelineStage[]  @relation("StageDecider")
-  oauthAccounts   OAuthAccount[]
+  candidateProfile   Candidate?      @relation("CandidateUser")
+  interviewerProfile Interviewer?    @relation("InterviewerUser")
+  oauthAccounts      OAuthAccount[]
+  createdJobs        Job[]           @relation("JobCreator")
+  decidedStages      PipelineStage[] @relation("StageDecider")
+  auditLogs          AuditLog[]      @relation("AuditActor")
 }
 
 model OAuthAccount {
@@ -112,164 +154,284 @@ model OAuthAccount {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([userId])
 }
 
 model Candidate {
-  id            String             @id @default(uuid())
+  id            String   @id @default(uuid())
+  userId        String   @unique
   name          String
-  email         String             @unique
+  email         String   @unique
+  phone         String?
   resumeUrl     String?
   timezone      String
-  currentStage  String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  currentStage String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  applications  Application[]
-  availability  AvailabilitySlot[]
-  notifications NotificationLog[]
+  user           User               @relation("CandidateUser", fields: [userId], references: [id], onDelete: Cascade)
+  applications   Application[]
+  availability   AvailabilitySlot[] @relation("CandidateAvailability")
+  calendarEvents CalendarEvent[]
+}
+
+model Interviewer {
+  id              String         @id @default(uuid())
+  userId          String         @unique
+  name            String
+  email           String         @unique
+  jobRole         String
+  interviewerType InterviewerType
+  experienceYears Int
+  timezone        String
+  workingHours    Json?
+  skills          String[]
+  isAvailable     Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user               User                  @relation("InterviewerUser", fields: [userId], references: [id], onDelete: Cascade)
+  participants       InterviewParticipant[]
+  availability       AvailabilitySlot[]   @relation("InterviewerAvailability")
+  selectedInterviews Interview[]           @relation("SelectedInterviewer")
+  matches            InterviewerMatch[]
+  requests           InterviewRequest[]
+  calendarEvents     CalendarEvent[]
 }
 
 model Job {
-  id             String        @id @default(uuid())
+  id             String    @id @default(uuid())
   title          String
   description    String?
+  department     String?
+  location       String?
+  experienceMin  Int?
+  experienceMax  Int?
   requiredSkills String[]
+  status         JobStatus @default(draft)
   createdById    String
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  createdBy      User          @relation("JobCreator", fields: [createdById], references: [id])
-  applications   Application[]
+  createdBy    User          @relation("JobCreator", fields: [createdById], references: [id])
+  applications Application[]
 }
 
 model Application {
-  id              String          @id @default(uuid())
+  id              String                     @id @default(uuid())
   candidateId     String
   jobId           String
+  resumeUrl       String?
   resumeScore     Decimal?
-  screeningStatus String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  screeningStatus ApplicationScreeningStatus @default(pending)
+  status          ApplicationStatus          @default(submitted)
+  appliedAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
 
-  candidate       Candidate       @relation(fields: [candidateId], references: [id])
-  job             Job             @relation(fields: [jobId], references: [id])
-  pipelineStages  PipelineStage[]
-  interviews      Interview[]
+  candidate      Candidate       @relation(fields: [candidateId], references: [id])
+  job            Job             @relation(fields: [jobId], references: [id])
+  pipelineStages PipelineStage[]
+  interviews     Interview[]
+  modelRuns      ModelRun[]
 
   @@unique([candidateId, jobId])
 }
 
 model PipelineStage {
-  id               String         @id @default(uuid())
-  applicationId    String
-  roundType        RoundType
-  roundOrder       Int
-  status           PipelineStatus @default(pending)
-  scheduledEventId String?
-  feedbackNotes    String?
-  decidedById      String?
-  decidedAt        DateTime?
-  completedAt      DateTime?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id                   String              @id @default(uuid())
+  applicationId        String
+  roundType            RoundType
+  stageOrder           Int
+  status               PipelineStageStatus @default(pending)
+  scheduledInterviewId String?
+  feedbackNotes        String?
+  decidedById          String?
+  decidedAt            DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
-  application      Application    @relation(fields: [applicationId], references: [id])
-  decidedBy        User?          @relation("StageDecider", fields: [decidedById], references: [id])
-  scheduledEvent   CalendarEvent?  @relation("StageScheduledEvent", fields: [scheduledEventId], references: [id])
-  interviews       Interview[]
+  application        Application @relation(fields: [applicationId], references: [id])
+  scheduledInterview Interview?   @relation("ScheduledPipelineStage", fields: [scheduledInterviewId], references: [id])
+  decidedBy          User?        @relation("StageDecider", fields: [decidedById], references: [id])
+  interview          Interview?   @relation("InterviewPipelineStage")
 
-  @@unique([scheduledEventId])
-  @@index([applicationId, roundOrder])
+  @@unique([scheduledInterviewId])
+  @@index([applicationId, stageOrder])
 }
 
 model Interview {
-  id              String                 @id @default(uuid())
-  applicationId   String
-  roundType       RoundType
-  durationMins    Int
-  status          InterviewStatus        @default(requested)
-  pipelineStageId String?
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
+  id                    String          @id @default(uuid())
+  applicationId         String
+  pipelineStageId       String?         @unique
+  roundType             RoundType
+  durationMins          Int
+  selectedInterviewerId String?
+  status                InterviewStatus @default(pending)
+  selectedSlot          DateTime?
+  meetLink              String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
 
-  application     Application            @relation(fields: [applicationId], references: [id])
-  pipelineStage   PipelineStage?         @relation(fields: [pipelineStageId], references: [id])
-  participants    InterviewParticipant[]
-  availability    AvailabilitySlot[]
-  calendarEvents  CalendarEvent[]
-  notifications   NotificationLog[]
+  application         Application           @relation(fields: [applicationId], references: [id])
+  pipelineStage       PipelineStage?        @relation("InterviewPipelineStage", fields: [pipelineStageId], references: [id])
+  scheduledStage      PipelineStage?        @relation("ScheduledPipelineStage")
+  selectedInterviewer Interviewer?          @relation("SelectedInterviewer", fields: [selectedInterviewerId], references: [id])
+  participants        InterviewParticipant[]
+  availability        AvailabilitySlot[]
+  matches             InterviewerMatch[]
+  slotRecommendations SlotRecommendation[]
+  requests            InterviewRequest[]
+  calendarEvents      CalendarEvent[]
+  notifications       NotificationLog[]
 }
 
 model InterviewParticipant {
   id              String          @id @default(uuid())
   interviewId     String
-  userId          String
+  interviewerId   String
   participantRole ParticipantRole
   isRequired      Boolean         @default(true)
   createdAt       DateTime        @default(now())
 
-  interview       Interview       @relation(fields: [interviewId], references: [id])
-  user            User            @relation(fields: [userId], references: [id])
+  interview   Interview   @relation(fields: [interviewId], references: [id])
+  interviewer Interviewer @relation(fields: [interviewerId], references: [id])
 
-  @@unique([interviewId, userId])
+  @@unique([interviewId, interviewerId])
 }
 
 model AvailabilitySlot {
-  id           String                @id @default(uuid())
-  interviewId  String?
-  ownerType    AvailabilityOwnerType
-  candidateId  String?
-  userId       String?
-  startUtc     DateTime
-  endUtc       DateTime
-  status       AvailabilityStatus    @default(available)
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
+  id            String                @id @default(uuid())
+  interviewId   String?
+  ownerType     AvailabilityOwnerType
+  candidateId   String?
+  interviewerId String?
+  startUtc      DateTime
+  endUtc        DateTime
+  status        AvailabilityStatus    @default(available)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
 
-  interview    Interview?            @relation(fields: [interviewId], references: [id])
-  candidate    Candidate?            @relation(fields: [candidateId], references: [id])
-  user         User?                 @relation(fields: [userId], references: [id])
+  interview   Interview?   @relation(fields: [interviewId], references: [id])
+  candidate   Candidate?   @relation("CandidateAvailability", fields: [candidateId], references: [id])
+  interviewer Interviewer? @relation("InterviewerAvailability", fields: [interviewerId], references: [id])
 
   @@index([candidateId, startUtc, endUtc])
-  @@index([userId, startUtc, endUtc])
+  @@index([interviewerId, startUtc, endUtc])
   @@index([interviewId, startUtc, endUtc])
+}
+
+model InterviewerMatch {
+  id                   String     @id @default(uuid())
+  interviewId          String
+  interviewerId        String
+  matchScore           Decimal?
+  rank                 Int
+  skillMatchScore      Decimal?
+  experienceMatchScore Decimal?
+  roleMatchScore       Decimal?
+  reason               String?
+  modelVersion         String?
+  createdAt            DateTime   @default(now())
+
+  interview   Interview   @relation(fields: [interviewId], references: [id])
+  interviewer Interviewer @relation(fields: [interviewerId], references: [id])
+
+  @@index([interviewId])
+  @@index([interviewerId])
+  @@index([interviewId, rank])
+}
+
+model SlotRecommendation {
+  id                       String   @id @default(uuid())
+  interviewId              String
+  slot                     DateTime
+  priorityScore            Decimal?
+  rank                     Int
+  workingHoursScore        Decimal?
+  bufferBeforeScore        Decimal?
+  bufferAfterScore         Decimal?
+  candidatePreferenceScore Decimal?
+  reason                   String?
+  modelVersion             String?
+  createdAt                DateTime @default(now())
+
+  interview Interview @relation(fields: [interviewId], references: [id])
+
+  @@index([interviewId])
+  @@index([interviewId, rank])
+}
+
+model InterviewRequest {
+  id            String                 @id @default(uuid())
+  interviewId   String
+  interviewerId String
+  slot          DateTime
+  status        InterviewRequestStatus @default(pending)
+  sentAt        DateTime               @default(now())
+  respondedAt   DateTime?
+  expiresAt     DateTime?
+
+  interview   Interview   @relation(fields: [interviewId], references: [id])
+  interviewer Interviewer @relation(fields: [interviewerId], references: [id])
+
+  @@index([interviewId])
+  @@index([interviewerId])
+  @@index([status])
 }
 
 model CalendarEvent {
   id              String              @id @default(uuid())
   interviewId     String
-  slotStartUtc    DateTime
-  slotEndUtc      DateTime
-  meetLink        String?
+  interviewerId   String
+  candidateId     String
+  slot            DateTime
   externalEventId String?
-  status          CalendarEventStatus @default(scheduled)
+  meetLink        String?
+  status          CalendarEventStatus @default(created)
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
-  interview       Interview           @relation(fields: [interviewId], references: [id])
-  pipelineStage   PipelineStage?      @relation("StageScheduledEvent")
+  interview   Interview   @relation(fields: [interviewId], references: [id])
+  interviewer Interviewer @relation(fields: [interviewerId], references: [id])
+  candidate   Candidate   @relation(fields: [candidateId], references: [id])
 
-  @@index([slotStartUtc, slotEndUtc])
+  @@index([slot])
 }
 
 model NotificationLog {
-  id           String             @id @default(uuid())
-  interviewId  String?
-  candidateId  String?
-  recipient    String
-  channel      NotificationChannel
-  type         String
-  status       NotificationStatus  @default(pending)
-  errorMessage String?
-  timestamp    DateTime            @default(now())
-  sentAt       DateTime?
+  id            String             @id @default(uuid())
+  interviewId   String?
+  recipientType String
+  recipientId   String
+  channel       NotificationChannel
+  type          String
+  status        NotificationStatus @default(pending)
+  timestamp     DateTime           @default(now())
 
-  interview    Interview?         @relation(fields: [interviewId], references: [id])
-  candidate    Candidate?         @relation(fields: [candidateId], references: [id])
+  interview Interview? @relation(fields: [interviewId], references: [id])
+
+  @@index([recipientType, recipientId])
+  @@index([interviewId])
+}
+
+model ModelRun {
+  id               String         @id @default(uuid())
+  modelType        ModelType
+  modelVersion     String
+  inputReferenceId String
+  inputData        Json?
+  outputData       Json?
+  status           ModelRunStatus @default(processing)
+  createdAt        DateTime       @default(now())
+  completedAt      DateTime?
+  applicationId    String?
+
+  application Application? @relation(fields: [applicationId], references: [id])
+
+  @@index([modelType, inputReferenceId])
 }
 
 model AuditLog {
@@ -281,7 +443,7 @@ model AuditLog {
   metadata    Json?
   createdAt   DateTime @default(now())
 
-  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id])
+  actor User? @relation("AuditActor", fields: [actorUserId], references: [id])
 
   @@index([entityType, entityId])
   @@index([actorUserId, createdAt])

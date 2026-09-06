@@ -13,7 +13,6 @@ export type PublicUser = {
   name: string;
   email: string;
   role: UserRole;
-  interviewerType: string | null;
   timezone: string;
   isActive: boolean;
   createdAt: Date;
@@ -24,19 +23,50 @@ export type AuthResult = {
   user: PublicUser;
 };
 
+export function logoutUser(): void {
+  // Bearer JWTs are stateless; cookie invalidation is handled by the controller.
+}
+
 export async function registerUser(input: RegisterInput): Promise<PublicUser> {
   const passwordHash = await bcrypt.hash(input.password, 12);
 
   try {
-    const user = await prisma.user.create({
-      data: {
-        name: input.name,
-        email: input.email,
-        passwordHash,
-        role: input.role,
-        timezone: 'UTC',
-        skillTags: [],
-      },
+    const user = await prisma.$transaction(async (transaction) => {
+      const createdUser = await transaction.user.create({
+        data: {
+          name: input.name,
+          email: input.email,
+          passwordHash,
+          role: input.role,
+          timezone: 'UTC',
+        },
+      });
+
+      if (input.role === 'candidate') {
+        await transaction.candidate.create({
+          data: {
+            userId: createdUser.id,
+            name: createdUser.name,
+            email: createdUser.email,
+            timezone: createdUser.timezone,
+          },
+        });
+      } else {
+        await transaction.interviewer.create({
+          data: {
+            userId: createdUser.id,
+            name: createdUser.name,
+            email: createdUser.email,
+            jobRole: '',
+            interviewerType: 'screening',
+            experienceYears: 0,
+            timezone: createdUser.timezone,
+            skills: [],
+          },
+        });
+      }
+
+      return createdUser;
     });
 
     return toPublicUser(user);
@@ -57,9 +87,7 @@ export async function loginUser(input: LoginInput): Promise<AuthResult> {
     throw new AppError(401, 'INVALID_CREDENTIALS', 'Email or password is invalid');
   }
 
-  const token = createApplicationToken(user.id, user.role);
-
-  return { token, user: toPublicUser(user) };
+  return { token: createApplicationToken(user.id, user.role), user: toPublicUser(user) };
 }
 
 export async function authenticateGoogleUser(identity: GoogleIdentity): Promise<AuthResult> {
@@ -108,13 +136,19 @@ export async function authenticateGoogleUser(identity: GoogleIdentity): Promise<
           name: identity.name,
           email: identity.email,
           passwordHash: generatedPasswordHash,
-          role: 'recruiter',
+          role: 'candidate',
           timezone: 'UTC',
-          skillTags: [],
           oauthAccounts: {
             create: {
               provider: 'google',
               providerAccountId: identity.providerAccountId,
+            },
+          },
+          candidateProfile: {
+            create: {
+              name: identity.name,
+              email: identity.email,
+              timezone: 'UTC',
             },
           },
         },
@@ -144,7 +178,6 @@ export function toPublicUser(user: {
   name: string;
   email: string;
   role: UserRole;
-  interviewerType: string | null;
   timezone: string;
   isActive: boolean;
   createdAt: Date;
@@ -154,7 +187,6 @@ export function toPublicUser(user: {
     name: user.name,
     email: user.email,
     role: user.role,
-    interviewerType: user.interviewerType,
     timezone: user.timezone,
     isActive: user.isActive,
     createdAt: user.createdAt,

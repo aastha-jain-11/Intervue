@@ -5,7 +5,7 @@ import { AppError } from './error.middleware.js';
 
 export type AuthenticatedUser = {
   id: string;
-  role: 'recruiter' | 'interviewer' | 'ta_admin';
+  role: 'candidate' | 'interviewer' | 'ta_admin';
 };
 
 declare global {
@@ -16,7 +16,7 @@ declare global {
   }
 }
 
-const validRoles = new Set<AuthenticatedUser['role']>(['recruiter', 'interviewer', 'ta_admin']);
+const validRoles = new Set<AuthenticatedUser['role']>(['candidate', 'interviewer', 'ta_admin']);
 
 export const authenticate: RequestHandler = (request: Request, _response: Response, next: NextFunction) => {
   const authorization = request.header('authorization');
