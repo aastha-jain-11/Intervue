@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+import os
 
 from app.schemas import InterviewScheduledNotification
 from app.services.notification_service import (
@@ -10,6 +12,18 @@ app = FastAPI(
     title="Intervue Notification Service",
     version="1.0.0"
 )
+
+
+@app.middleware("http")
+async def require_internal_token(request: Request, call_next):
+    if request.url.path == "/health":
+        return await call_next(request)
+
+    expected_token = os.getenv("INTERNAL_SERVICE_TOKEN")
+    if not expected_token or request.headers.get("authorization") != f"Bearer {expected_token}":
+        return JSONResponse(status_code=401, content={"detail": "Internal authentication required"})
+
+    return await call_next(request)
 
 
 @app.get("/health")

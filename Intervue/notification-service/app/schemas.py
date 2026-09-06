@@ -13,7 +13,7 @@ class InterviewSlot(BaseModel):
 
 
 class InterviewScheduledNotification(BaseModel):
-    interview_id: int
+    interview_id: str
 
     candidate: Person
     interviewer: Person

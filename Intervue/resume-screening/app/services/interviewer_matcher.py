@@ -72,13 +72,14 @@ def calculate_match_score(
 
 def recommend_interviewers(
     candidate_skills: list[str],
-    top_k: int = 3
+    top_k: int = 3,
+    interviewers: list[dict] | None = None
 ):
     """
     Return the top K interviewers based on skill match.
     """
 
-    interviewers = load_interviewers()
+    interviewers = interviewers if interviewers is not None else load_interviewers()
 
     recommendations = []
 

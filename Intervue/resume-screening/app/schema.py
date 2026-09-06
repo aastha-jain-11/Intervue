@@ -24,6 +24,7 @@ class InterviewerRecommendationRequest(BaseModel):
         min_length=1,
         description="Skills extracted from the candidate resume"
     )
+    interviewers: list[dict] | None = None
 
 
 class InterviewerRecommendation(BaseModel):

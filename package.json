@@ -8,7 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/foundation.test.ts tests/auth.test.ts tests/jobs.test.ts tests/candidates.test.ts"
+    "test": "tsx --test tests/foundation.test.ts tests/auth.test.ts tests/jobs.test.ts tests/candidates.test.ts tests/internal-services.test.ts"
   },
   "keywords": [],
   "author": "",

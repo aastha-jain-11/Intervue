@@ -3,8 +3,11 @@ from fastapi import (
     UploadFile,
     File,
     Form,
-    HTTPException
+    HTTPException,
+    Request
 )
+from fastapi.responses import JSONResponse
+import os
 
 from app.db import (
     init_db,
@@ -61,6 +64,18 @@ app = FastAPI(
 )
 
 
+@app.middleware("http")
+async def require_internal_token(request: Request, call_next):
+    if request.url.path == "/health":
+        return await call_next(request)
+
+    expected_token = os.getenv("INTERNAL_SERVICE_TOKEN")
+    if not expected_token or request.headers.get("authorization") != f"Bearer {expected_token}":
+        return JSONResponse(status_code=401, content={"detail": "Internal authentication required"})
+
+    return await call_next(request)
+
+
 # =========================================================
 # STARTUP
 # =========================================================
@@ -97,7 +112,8 @@ def recommend_interviewer(
 
     recommendations = recommend_interviewers(
         candidate_skills=request.skills,
-        top_k=3
+        top_k=3,
+        interviewers=request.interviewers
     )
 
     return {
