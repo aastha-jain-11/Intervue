@@ -25,6 +25,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {isCandidate ? <>
           <NavItem to="/candidate/interviews" icon="▣">My interviews</NavItem>
           <NavItem to="/candidate/calendar" icon="□">Calendar</NavItem>
+          <NavItem to="/candidate/apply" icon="＋">Apply for a role</NavItem>
         </> : <>
           <NavItem to={isInterviewer ? '/interviewer/interviews' : '/ta/candidates'} icon="◉">{isInterviewer ? 'My Interviews' : 'Candidates'}</NavItem>
           <NavItem to={isInterviewer ? '/interviewer/calendar' : '/ta/interviews'} icon="▣">{isInterviewer ? 'Calendar' : 'Interviews'}</NavItem>

@@ -4,6 +4,7 @@ import { CandidateCalendarPage } from '../pages/candidate/CandidateCalendarPage'
 import { CandidateDashboardPage } from '../pages/candidate/CandidateDashboardPage'
 import { CandidateInterviewsPage } from '../pages/candidate/CandidateInterviewsPage'
 import { CandidateNotificationsPage } from '../pages/candidate/CandidateNotificationsPage'
+import { CandidateApplicationPage } from '../pages/candidate/CandidateApplicationPage'
 import { CandidateLoginPage } from '../pages/common/CandidateLoginPage'
 import { CandidateSignupPage } from '../pages/common/CandidateSignupPage'
 import { LoginPage } from '../pages/common/LoginPage'
@@ -37,6 +38,7 @@ export function AppRoutes() {
       <Route path="/candidate/interviews" element={<CandidateInterviewsPage />} />
       <Route path="/candidate/calendar" element={<CandidateCalendarPage />} />
       <Route path="/candidate/notifications" element={<CandidateNotificationsPage />} />
+      <Route path="/candidate/apply" element={<CandidateApplicationPage />} />
       <Route path="/ta/dashboard" element={<TADashboardPage />} />
       <Route path="/ta/candidates" element={<CandidatesPage />} />
       <Route path="/ta/candidates/:candidateId" element={<CandidateProfilePage />} />
