@@ -1,0 +1,1 @@
+export { CandidateNotificationsPage } from './CandidatePages'
