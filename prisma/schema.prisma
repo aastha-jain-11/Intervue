@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  recruiter
+  interviewer
+  ta_admin
+}
+
+enum InterviewerType {
+  hr
+  technical
+  managerial
+  screening
+}
+
+enum RoundType {
+  screening
+  technical
+  managerial
+  HR
+}
+
+enum PipelineStatus {
+  pending
+  scheduled
+  completed
+  selected
+  rejected
+  no_show
+}
+
+enum InterviewStatus {
+  requested
+  slots_generated
+  booked
+  completed
+  rescheduled
+  cancelled
+}
+
+enum AvailabilityOwnerType {
+  candidate
+  interviewer
+}
+
+enum AvailabilityStatus {
+  available
+  unavailable
+  selected
+  expired
+}
+
+enum ParticipantRole {
+  primary
+  secondary
+  observer
+}
+
+enum CalendarEventStatus {
+  scheduled
+  cancelled
+  updated
+}
+
+enum NotificationChannel {
+  email
+  sms
+  in_app
+}
+
+enum NotificationStatus {
+  pending
+  sent
+  failed
+  read
+}
+
+model User {
+  id              String           @id @default(uuid())
+  name            String
+  email           String           @unique
+  passwordHash    String
+  role            UserRole
+  interviewerType InterviewerType?
+  timezone        String
+  workingHours    Json?
+  skillTags       String[]
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  participants    InterviewParticipant[]
+  availability    AvailabilitySlot[]
+  createdJobs     Job[]              @relation("JobCreator")
+  auditLogs       AuditLog[]       @relation("AuditActor")
+  decidedStages   PipelineStage[]  @relation("StageDecider")
+}
+
+model Candidate {
+  id            String             @id @default(uuid())
+  name          String
+  email         String             @unique
+  resumeUrl     String?
+  timezone      String
+  currentStage  String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  applications  Application[]
+  availability  AvailabilitySlot[]
+  notifications NotificationLog[]
+}
+
+model Job {
+  id             String        @id @default(uuid())
+  title          String
+  description    String?
+  requiredSkills String[]
+  createdById    String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  createdBy      User          @relation("JobCreator", fields: [createdById], references: [id])
+  applications   Application[]
+}
+
+model Application {
+  id              String          @id @default(uuid())
+  candidateId     String
+  jobId           String
+  resumeScore     Decimal?
+  screeningStatus String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  candidate       Candidate       @relation(fields: [candidateId], references: [id])
+  job             Job             @relation(fields: [jobId], references: [id])
+  pipelineStages  PipelineStage[]
+  interviews      Interview[]
+
+  @@unique([candidateId, jobId])
+}
+
+model PipelineStage {
+  id               String         @id @default(uuid())
+  applicationId    String
+  roundType        RoundType
+  roundOrder       Int
+  status           PipelineStatus @default(pending)
+  scheduledEventId String?
+  feedbackNotes    String?
+  decidedById      String?
+  decidedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  application      Application    @relation(fields: [applicationId], references: [id])
+  decidedBy        User?          @relation("StageDecider", fields: [decidedById], references: [id])
+  scheduledEvent   CalendarEvent?  @relation("StageScheduledEvent", fields: [scheduledEventId], references: [id])
+  interviews       Interview[]
+
+  @@unique([scheduledEventId])
+  @@index([applicationId, roundOrder])
+}
+
+model Interview {
+  id              String                 @id @default(uuid())
+  applicationId   String
+  roundType       RoundType
+  durationMins    Int
+  status          InterviewStatus        @default(requested)
+  pipelineStageId String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  application     Application            @relation(fields: [applicationId], references: [id])
+  pipelineStage   PipelineStage?         @relation(fields: [pipelineStageId], references: [id])
+  participants    InterviewParticipant[]
+  availability    AvailabilitySlot[]
+  calendarEvents  CalendarEvent[]
+  notifications   NotificationLog[]
+}
+
+model InterviewParticipant {
+  id              String          @id @default(uuid())
+  interviewId     String
+  userId          String
+  participantRole ParticipantRole
+  isRequired      Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+
+  interview       Interview       @relation(fields: [interviewId], references: [id])
+  user            User            @relation(fields: [userId], references: [id])
+
+  @@unique([interviewId, userId])
+}
+
+model AvailabilitySlot {
+  id           String                @id @default(uuid())
+  interviewId  String?
+  ownerType    AvailabilityOwnerType
+  candidateId  String?
+  userId       String?
+  startUtc     DateTime
+  endUtc       DateTime
+  status       AvailabilityStatus    @default(available)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  interview    Interview?            @relation(fields: [interviewId], references: [id])
+  candidate    Candidate?            @relation(fields: [candidateId], references: [id])
+  user         User?                 @relation(fields: [userId], references: [id])
+
+  @@index([candidateId, startUtc, endUtc])
+  @@index([userId, startUtc, endUtc])
+  @@index([interviewId, startUtc, endUtc])
+}
+
+model CalendarEvent {
+  id              String              @id @default(uuid())
+  interviewId     String
+  slotStartUtc    DateTime
+  slotEndUtc      DateTime
+  meetLink        String?
+  externalEventId String?
+  status          CalendarEventStatus @default(scheduled)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  interview       Interview           @relation(fields: [interviewId], references: [id])
+  pipelineStage   PipelineStage?      @relation("StageScheduledEvent")
+
+  @@index([slotStartUtc, slotEndUtc])
+}
+
+model NotificationLog {
+  id           String             @id @default(uuid())
+  interviewId  String?
+  candidateId  String?
+  recipient    String
+  channel      NotificationChannel
+  type         String
+  status       NotificationStatus  @default(pending)
+  errorMessage String?
+  timestamp    DateTime            @default(now())
+  sentAt       DateTime?
+
+  interview    Interview?         @relation(fields: [interviewId], references: [id])
+  candidate    Candidate?         @relation(fields: [candidateId], references: [id])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorUserId, createdAt])
+}
