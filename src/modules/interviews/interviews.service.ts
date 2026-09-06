@@ -58,11 +58,47 @@ export async function scheduleInterview(id: string, input: ScheduleInterviewInpu
   if (!candidateSlot || !interviewerSlot || calendarConflict || overlap) throw new AppError(409, 'SCHEDULING_CONFLICT', 'Selected slot is no longer available');
   const meetLink = `https://meet.intervue.local/${id}`;
   const scheduled = await prisma.$transaction(async (tx) => { const updated = await tx.interview.update({ where: { id }, data: { selectedInterviewerId: interviewer.id, selectedSlot: slot, meetLink, status: 'scheduled' }, include: interviewInclude }); await tx.calendarEvent.create({ data: { interviewId: id, interviewerId: interviewer.id, candidateId: interview.application.candidateId, slot, meetLink, status: 'created' } }); await tx.auditLog.create({ data: { actorUserId, action: 'INTERVIEW_SCHEDULED', entityType: 'Interview', entityId: id, metadata: { interviewerId: interviewer.id, selectedSlot: slot.toISOString() } } }); return updated; });
-  void notifyScheduled(scheduled).catch(() => undefined);
+  await notifyScheduled(scheduled);
   return scheduled;
 }
 
+export async function autoScheduleInterview(id: string, actorUserId: string): Promise<{ interview: InterviewView; matchScore: number; candidateAvailable: true; interviewerAvailable: true; calendarEventCreated: true; notificationSent: boolean }> {
+  await recommendInterviewers(id, actorUserId);
+  const interview = await getInterview(id);
+  const [candidateSlots, interviewerSlots] = await Promise.all([
+    prisma.availabilitySlot.findMany({ where: { candidateId: interview.application.candidateId, ownerType: 'candidate', status: 'available' }, orderBy: { startUtc: 'asc' } }),
+    prisma.availabilitySlot.findMany({ where: { ownerType: 'interviewer', status: 'available', interviewer: { isAvailable: true } }, include: { interviewer: true }, orderBy: { startUtc: 'asc' } }),
+  ]);
+  const matches = await prisma.interviewerMatch.findMany({ where: { interviewId: id }, orderBy: { rank: 'asc' } });
+  const matchByInterviewer = new Map(matches.map((match) => [match.interviewerId, Number(match.matchScore ?? 0)]));
+  const options: Array<{ interviewerId: string; slot: Date; score: number }> = [];
+  for (const interviewerSlot of interviewerSlots) {
+    if (!interviewerSlot.interviewerId || !matchByInterviewer.has(interviewerSlot.interviewerId)) continue;
+    for (const candidateSlot of candidateSlots) {
+      const start = new Date(Math.max(candidateSlot.startUtc.getTime(), interviewerSlot.startUtc.getTime()));
+      const end = new Date(Math.min(candidateSlot.endUtc.getTime(), interviewerSlot.endUtc.getTime()));
+      for (let slot = start; slot.getTime() + interview.durationMins * 60_000 <= end.getTime(); slot = new Date(slot.getTime() + 30 * 60_000)) {
+        options.push({ interviewerId: interviewerSlot.interviewerId, slot, score: matchByInterviewer.get(interviewerSlot.interviewerId) ?? 0 });
+      }
+    }
+  }
+  options.sort((left, right) => right.score - left.score || left.slot.getTime() - right.slot.getTime());
+  if (options.length === 0) throw new AppError(409, 'NO_FEASIBLE_SLOT', 'No compatible candidate and interviewer slot is available');
+  await prisma.$transaction(async (tx) => {
+    await tx.slotRecommendation.deleteMany({ where: { interviewId: id } });
+    await tx.slotRecommendation.createMany({ data: options.slice(0, 20).map((option, index) => ({ interviewId: id, slot: option.slot, priorityScore: option.score, rank: index + 1, reason: `Interviewer ${option.interviewerId}; skill match ${option.score}`, modelVersion: 'node-mvp-v1' })) });
+    await tx.auditLog.create({ data: { actorUserId, action: 'INTERVIEW_SLOT_RECOMMENDATIONS_CREATED', entityType: 'Interview', entityId: id, metadata: { count: Math.min(options.length, 20) } } });
+  });
+  let scheduled: InterviewView | undefined;
+  let selected: { interviewerId: string; slot: Date; score: number } | undefined;
+  for (const option of options) {
+    try { scheduled = await scheduleInterview(id, { interviewerId: option.interviewerId, selectedSlot: option.slot.toISOString() }, actorUserId); selected = option; break; } catch (error) { if (!(error instanceof AppError) || error.code !== 'SCHEDULING_CONFLICT') throw error; }
+  }
+  if (!scheduled || !selected) throw new AppError(409, 'SCHEDULING_CONFLICT', 'No recommended slot remained available');
+  const notification = await prisma.notificationLog.findFirst({ where: { interviewId: id, type: 'INTERVIEW_SCHEDULED' }, orderBy: { timestamp: 'desc' } });
+  return { interview: scheduled, matchScore: selected.score, candidateAvailable: true, interviewerAvailable: true, calendarEventCreated: true, notificationSent: notification?.status === 'sent' };
+}
+
 async function notifyScheduled(interview: InterviewView): Promise<void> {
-  const config = getInternalServiceConfig('notification');
-  try { await new InternalServiceClient('notification', config).request('/notifications/interview-scheduled', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ interview_id: interview.id, candidate: interview.application.candidate, interviewer: interview.selectedInterviewer, round_type: interview.roundType, duration_mins: interview.durationMins, selected_slot: { start: interview.selectedSlot?.toISOString(), end: new Date((interview.selectedSlot as Date).getTime() + interview.durationMins * 60_000).toISOString() }, mode: 'online', timezone: interview.application.candidate.timezone, meet_link: interview.meetLink }) }, config.timeouts.dispatchMs); await prisma.notificationLog.create({ data: { interviewId: interview.id, recipientType: 'interview', recipientId: interview.id, channel: 'email', type: 'INTERVIEW_SCHEDULED', status: 'sent' } }); } catch { await prisma.notificationLog.create({ data: { interviewId: interview.id, recipientType: 'interview', recipientId: interview.id, channel: 'email', type: 'INTERVIEW_SCHEDULED', status: 'failed' } }); }
+  try { const config = getInternalServiceConfig('notification'); await new InternalServiceClient('notification', config).request('/notifications/interview-scheduled', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ interview_id: interview.id, candidate: interview.application.candidate, interviewer: interview.selectedInterviewer, round_type: interview.roundType, duration_mins: interview.durationMins, selected_slot: { start: interview.selectedSlot?.toISOString(), end: new Date((interview.selectedSlot as Date).getTime() + interview.durationMins * 60_000).toISOString() }, mode: 'online', timezone: interview.application.candidate.timezone, meet_link: interview.meetLink }) }, config.timeouts.dispatchMs); await prisma.notificationLog.create({ data: { interviewId: interview.id, recipientType: 'interview', recipientId: interview.id, channel: 'email', type: 'INTERVIEW_SCHEDULED', status: 'sent' } }); } catch { await prisma.notificationLog.create({ data: { interviewId: interview.id, recipientType: 'interview', recipientId: interview.id, channel: 'email', type: 'INTERVIEW_SCHEDULED', status: 'failed' } }); }
 }

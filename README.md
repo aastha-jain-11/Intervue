@@ -65,3 +65,12 @@ PostgreSQL is owned by Node/Prisma. Python services return computed results or p
 The Python Dockerfiles do not currently publish a port, so set the two URLs to match the ports used when starting the services. Service tokens must remain server-side only.
 
 Set each Python service's `INTERNAL_SERVICE_TOKEN` to its matching Node token (`RESUME_SERVICE_TOKEN` or `NOTIFICATION_SERVICE_TOKEN`).
+
+For local development, start the internal services from their respective directories:
+
+```powershell
+$env:INTERNAL_SERVICE_TOKEN = '<matching service token>'
+uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+
+Use port `8001` for resume screening and `8002` for notifications, with each service's matching token. The browser still communicates only with the Node API on port `3000`.

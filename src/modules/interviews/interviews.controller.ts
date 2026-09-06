@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
 import { AppError } from '../../middleware/error.middleware.js';
-import { createInterview, getInterviewForActor, recommendInterviewers, scheduleInterview, updateInterview } from './interviews.service.js';
+import { autoScheduleInterview, createInterview, getInterviewForActor, recommendInterviewers, scheduleInterview, updateInterview } from './interviews.service.js';
 import { interviewIdSchema } from './interviews.validation.js';
 import type { CreateInterviewInput, ScheduleInterviewInput, UpdateInterviewInput } from './interviews.validation.js';
 
@@ -11,3 +11,4 @@ export const get: RequestHandler = async (request, response, next) => { try { co
 export const update: RequestHandler = async (request, response, next) => { try { const user = auth(request); const interview = await updateInterview(interviewId(request.params.interviewId), request.body as UpdateInterviewInput, user.id); response.json({ success: true, data: { interview } }); } catch (error) { next(error); } };
 export const recommendations: RequestHandler = async (request, response, next) => { try { const user = auth(request); const interview = await recommendInterviewers(interviewId(request.params.interviewId), user.id); response.json({ success: true, data: { interview, recommendations: interview.matches } }); } catch (error) { next(error); } };
 export const schedule: RequestHandler = async (request, response, next) => { try { const user = auth(request); const interview = await scheduleInterview(interviewId(request.params.interviewId), request.body as ScheduleInterviewInput, user.id); response.json({ success: true, data: { interview } }); } catch (error) { next(error); } };
+export const autoSchedule: RequestHandler = async (request, response, next) => { try { const result = await autoScheduleInterview(interviewId(request.params.interviewId), auth(request).id); response.json({ success: true, data: result }); } catch (error) { next(error); } };
