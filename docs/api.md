@@ -37,3 +37,17 @@ Authentication middleware verifies the JWT and attaches the user ID and canonica
 - Availability is represented through normalized UTC `AvailabilitySlot` rows rather than JSON so scheduling can query, index, intersect, and transition slots safely.
 - OAuth accounts are stored separately with a unique `(provider, providerAccountId)` pair.
 - AuditLog remains separate from ModelRun and records business/security actions.
+
+## Jobs endpoints
+
+All Jobs endpoints require an application JWT. Job creation, updates, and status changes require the `ta_admin` role.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/jobs` | Create a draft job; `createdBy` is taken from the authenticated user |
+| GET | `/api/jobs` | List jobs; supports `status`, `department`, and `search` filters |
+| GET | `/api/jobs/:jobId` | Retrieve one job |
+| PUT | `/api/jobs/:jobId` | Update supplied mutable job fields |
+| PATCH | `/api/jobs/:jobId/status` | Change job status to `draft`, `open`, or `closed` |
+
+Successful responses use `{ "success": true, "data": { ... } }`. List responses include `jobs` and `count`. Job mutations record `JOB_CREATED`, `JOB_UPDATED`, or `JOB_STATUS_CHANGED` audit events.
