@@ -1,0 +1,154 @@
+[
+    {
+        "interviewer_id": "I001",
+        "name": "Rahul Sharma",
+        "email": "rahul.sharma@company.com",
+        "skills": [
+            "python",
+            "machine learning",
+            "scikit-learn",
+            "pandas",
+            "numpy",
+            "statistics"
+        ],
+        "experience": 7,
+        "timezone": "Asia/Kolkata",
+        "mode": [
+            "online",
+            "offline"
+        ],
+        "availability": {
+            "monday": [
+                ["09:00", "13:00"],
+                ["14:00", "18:00"]
+            ],
+            "tuesday": [
+                ["09:00", "13:00"],
+                ["14:00", "18:00"]
+            ],
+            "wednesday": [
+                ["09:00", "13:00"],
+                ["14:00", "18:00"]
+            ],
+            "thursday": [
+                ["09:00", "13:00"],
+                ["14:00", "18:00"]
+            ],
+            "friday": [
+                ["09:00", "13:00"],
+                ["14:00", "18:00"]
+            ]
+        }
+    },
+    {
+        "interviewer_id": "I002",
+        "name": "Priya Menon",
+        "email": "priya.menon@company.com",
+        "skills": [
+            "python",
+            "deep learning",
+            "pytorch",
+            "tensorflow",
+            "machine learning",
+            "computer vision"
+        ],
+        "experience": 6,
+        "timezone": "Asia/Kolkata",
+        "mode": [
+            "online"
+        ],
+        "availability": {
+            "monday": [
+                ["10:00", "14:00"]
+            ],
+            "tuesday": [
+                ["10:00", "14:00"]
+            ],
+            "wednesday": [
+                ["10:00", "14:00"]
+            ],
+            "thursday": [
+                ["10:00", "14:00"]
+            ],
+            "friday": [
+                ["10:00", "14:00"]
+            ]
+        }
+    },
+    {
+        "interviewer_id": "I003",
+        "name": "Arjun Kapoor",
+        "email": "arjun.kapoor@company.com",
+        "skills": [
+            "java",
+            "python",
+            "sql",
+            "backend",
+            "rest api",
+            "docker"
+        ],
+        "experience": 8,
+        "timezone": "Asia/Kolkata",
+        "mode": [
+            "online",
+            "offline"
+        ],
+        "availability": {
+            "monday": [
+                ["11:00", "15:00"],
+                ["16:00", "19:00"]
+            ],
+            "tuesday": [
+                ["11:00", "15:00"],
+                ["16:00", "19:00"]
+            ],
+            "wednesday": [
+                ["11:00", "15:00"],
+                ["16:00", "19:00"]
+            ],
+            "thursday": [
+                ["11:00", "15:00"],
+                ["16:00", "19:00"]
+            ],
+            "friday": [
+                ["11:00", "15:00"]
+            ]
+        }
+    },
+    {
+        "interviewer_id": "I004",
+        "name": "Sneha Iyer",
+        "email": "sneha.iyer@company.com",
+        "skills": [
+            "python",
+            "machine learning",
+            "xgboost",
+            "pandas",
+            "numpy",
+            "scikit-learn",
+            "sql"
+        ],
+        "experience": 5,
+        "timezone": "Asia/Kolkata",
+        "mode": [
+            "online"
+        ],
+        "availability": {
+            "monday": [
+                ["09:00", "12:00"]
+            ],
+            "tuesday": [
+                ["09:00", "12:00"]
+            ],
+            "wednesday": [
+                ["09:00", "12:00"]
+            ],
+            "thursday": [
+                ["09:00", "12:00"]
+            ],
+            "friday": [
+                ["09:00", "12:00"]
+            ]
+        }
+    }
+]

@@ -1,26 +1,48 @@
 {
-  "name": "intervue-scaffold",
+  "name": "intervue",
+  "version": "1.0.0",
+  "description": "Smart Interview Scheduler",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev:backend": "tsx watch src/server.ts",
+    "build": "vite build",
+    "build:backend": "tsc -p tsconfig.server.json",
+"typecheck": "tsc -p tsconfig.server.json --noEmit",
+    "start": "node dist/server.js",
+    "test": "tsx --test tests/foundation.test.ts tests/auth.test.ts tests/jobs.test.ts tests/candidates.test.ts tests/internal-services.test.ts",
     "lint": "oxlint",
     "preview": "vite preview"
   },
-  "dependencies": {
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.3"
-  },
-  "devDependencies": {
-    "@types/node": "^24.13.3",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
-    "@vitejs/plugin-react": "^6.1.0",
-    "oxlint": "^1.79.0",
-    "typescript": "~6.0.2",
-    "vite": "^8.2.2"
-  }
+ "dependencies": {
+  "@prisma/client": "^6.19.3",
+  "bcryptjs": "^3.0.3",
+  "cookie-parser": "^1.4.7",
+  "cors": "^2.8.6",
+  "dotenv": "^17.4.2",
+  "express": "^5.2.1",
+  "google-auth-library": "^10.9.1",
+  "helmet": "^8.3.0",
+  "jsonwebtoken": "^9.0.3",
+  "react": "^19.2.8",
+  "react-dom": "^19.2.8",
+  "react-router-dom": "^7.18.3",
+  "zod": "^4.5.4"
+},
+"devDependencies": {
+  "@types/cookie-parser": "^1.4.10",
+  "@types/cors": "^2.8.19",
+  "@types/express": "^5.0.6",
+  "@types/jsonwebtoken": "^9.0.10",
+  "@types/node": "^26.4.1",
+  "@types/react": "^19.2.18",
+  "@types/react-dom": "^19.2.4",
+  "@vitejs/plugin-react": "^6.1.0",
+  "oxlint": "^1.79.0",
+  "prisma": "^6.19.3",
+  "tsx": "^4.23.13",
+  "typescript": "^7.0.2",
+  "vite": "^8.2.2"
+}
 }

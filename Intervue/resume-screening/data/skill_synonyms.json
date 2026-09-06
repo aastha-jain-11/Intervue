@@ -1,0 +1,125 @@
+{
+    "python": [
+        "python",
+        "py"
+    ],
+
+    "javascript": [
+        "javascript",
+        "js",
+        "java script"
+    ],
+
+    "typescript": [
+        "typescript",
+        "ts"
+    ],
+
+    "react": [
+        "react",
+        "reactjs",
+        "react.js"
+    ],
+
+    "node.js": [
+        "node",
+        "nodejs",
+        "node.js"
+    ],
+
+    "machine learning": [
+        "machine learning",
+        "machine-learning",
+        "ml"
+    ],
+
+    "artificial intelligence": [
+        "artificial intelligence",
+        "ai"
+    ],
+
+    "sql": [
+        "sql",
+        "structured query language"
+    ],
+
+    "postgresql": [
+        "postgresql",
+        "postgres",
+        "psql"
+    ],
+
+    "mysql": [
+        "mysql"
+    ],
+
+    "mongodb": [
+        "mongodb",
+        "mongo"
+    ],
+
+    "fastapi": [
+        "fastapi",
+        "fast api"
+    ],
+
+    "django": [
+        "django"
+    ],
+
+    "flask": [
+        "flask"
+    ],
+
+    "docker": [
+        "docker",
+        "containerization",
+        "containers"
+    ],
+
+    "kubernetes": [
+        "kubernetes",
+        "k8s"
+    ],
+
+    "aws": [
+        "aws",
+        "amazon web services"
+    ],
+
+    "azure": [
+        "azure",
+        "microsoft azure"
+    ],
+
+    "git": [
+        "git",
+        "github",
+        "gitlab"
+    ],
+
+    "rest api": [
+        "rest api",
+        "rest apis",
+        "restful api",
+        "restful apis"
+    ],
+
+    "redis": [
+        "redis"
+    ],
+
+    "java": [
+        "java"
+    ],
+
+    "c++": [
+        "c++",
+        "cpp"
+    ],
+
+    "c": [
+        "c programming",
+        "c language"
+    ]
+}
