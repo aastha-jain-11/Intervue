@@ -51,3 +51,18 @@ All Jobs endpoints require an application JWT. Job creation, updates, and status
 | PATCH | `/api/jobs/:jobId/status` | Change job status to `draft`, `open`, or `closed` |
 
 Successful responses use `{ "success": true, "data": { ... } }`. List responses include `jobs` and `count`. Job mutations record `JOB_CREATED`, `JOB_UPDATED`, or `JOB_STATUS_CHANGED` audit events.
+
+## Candidate profile and availability endpoints
+
+These endpoints require an application JWT and the `candidate` role. Ownership is derived from the authenticated user; candidate IDs are never accepted from the client.
+
+| Method | Endpoint | Request body | Purpose |
+|---|---|---|---|
+| GET | `/api/candidates/me` | None | Return the authenticated candidate profile |
+| PUT | `/api/candidates/me` | Any of `name`, `email`, `phone`, `resumeUrl`, `timezone` | Update the authenticated candidate profile |
+| GET | `/api/candidates/me/availability` | None | List the candidate's UTC availability slots in ascending start order |
+| POST | `/api/candidates/me/availability` | `{ "startUtc": "...", "endUtc": "..." }` | Create a future, non-overlapping UTC availability slot |
+| PUT | `/api/candidates/me/availability/:slotId` | `{ "startUtc": "...", "endUtc": "..." }` | Update an owned availability slot |
+| DELETE | `/api/candidates/me/availability/:slotId` | None | Delete an owned availability slot |
+
+Profile responses use `data.candidate`; availability responses use `data.availability`. Profile-not-found and missing-owned-slot requests return `404`, invalid input returns `400`, overlapping slots and duplicate emails return `409`, and authenticated non-candidates receive `403`. Availability mutations record `CANDIDATE_AVAILABILITY_CREATED`, `CANDIDATE_AVAILABILITY_UPDATED`, or `CANDIDATE_AVAILABILITY_DELETED` audit events; profile changes record `CANDIDATE_PROFILE_UPDATED`.
