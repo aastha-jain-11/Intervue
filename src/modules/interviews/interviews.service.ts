@@ -8,9 +8,18 @@ const interviewInclude = { application: { include: { candidate: true, job: true 
 type InterviewView = Prisma.InterviewGetPayload<{ include: typeof interviewInclude }>;
 const getInterview = async (id: string): Promise<InterviewView> => { const interview = await prisma.interview.findUnique({ where: { id }, include: interviewInclude }); if (!interview) throw new AppError(404, 'INTERVIEW_NOT_FOUND', 'Interview not found'); return interview; };
 
+export async function listInterviewsForActor(actor: { id: string; role: string }): Promise<InterviewView[]> {
+  const where: Prisma.InterviewWhereInput = actor.role === 'ta_admin'
+    ? {}
+    : actor.role === 'candidate'
+      ? { application: { candidate: { userId: actor.id } } }
+      : { selectedInterviewer: { userId: actor.id } };
+  return prisma.interview.findMany({ where, include: interviewInclude, orderBy: { createdAt: 'desc' } });
+}
+
 export async function getInterviewForActor(id: string, actor: { id: string; role: string }): Promise<InterviewView> {
   const interview = await getInterview(id);
-  if (actor.role !== 'ta_admin' && interview.application.candidate.userId !== actor.id) throw new AppError(403, 'FORBIDDEN', 'You do not have permission to access this interview');
+  if (actor.role !== 'ta_admin' && interview.application.candidate.userId !== actor.id && interview.selectedInterviewer?.userId !== actor.id) throw new AppError(403, 'FORBIDDEN', 'You do not have permission to access this interview');
   return interview;
 }
 
@@ -51,7 +60,7 @@ export async function scheduleInterview(id: string, input: ScheduleInterviewInpu
   const [candidateSlot, interviewerSlot, calendarConflict, interviewerInterviews] = await Promise.all([
     prisma.availabilitySlot.findFirst({ where: { candidateId: interview.application.candidateId, ownerType: 'candidate', status: 'available', startUtc: { lte: slot }, endUtc: { gte: end } } }),
     prisma.availabilitySlot.findFirst({ where: { interviewerId: interviewer.id, ownerType: 'interviewer', status: 'available', startUtc: { lte: slot }, endUtc: { gte: end } } }),
-    prisma.calendarEvent.findFirst({ where: { OR: [{ candidateId: interview.application.candidateId }, { interviewerId: interviewer.id }], slot } }),
+    prisma.calendarEvent.findFirst({ where: { OR: [{ candidateId: interview.application.candidateId }, { interviewerId: interviewer.id }], slot: { gte: new Date(slot.getTime() - 24 * 60 * 60 * 1000), lte: end } } }),
     prisma.interview.findMany({ where: { id: { not: id }, selectedSlot: { not: null }, status: 'scheduled', OR: [{ selectedInterviewerId: interviewer.id }, { application: { candidateId: interview.application.candidateId } }] } }),
   ]);
   const overlap = interviewerInterviews.some((item) => { const start = item.selectedSlot as Date; const finish = new Date(start.getTime() + item.durationMins * 60_000); return start < end && finish > slot; });

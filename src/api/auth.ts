@@ -47,6 +47,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser> {
   return response.data.user
 }
 
-export function startGoogleLogin(): void {
-  window.location.href = `${getApiBaseUrl()}/auth/google`
+export function startGoogleLogin(role?: 'candidate' | 'interviewer'): void {
+  const query = role ? `?role=${role}` : ''
+  window.location.href = `${getApiBaseUrl()}/auth/google${query}`
 }

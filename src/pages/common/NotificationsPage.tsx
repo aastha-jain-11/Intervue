@@ -1,5 +1,9 @@
-import { useState } from 'react'
-import { notifications } from '../../data/demoData'
-import { Button, PageHeader } from '../../components/common'
-export function NotificationsPage() { const [read,setRead] = useState<string[]>([]); return <><PageHeader eyebrow="Workspace" title="Notifications" description="Stay on top of activity across your hiring workflow." action={<Button variant="secondary" onClick={() => setRead(notifications.map(item => item.title))}>Mark all as read</Button>}/><div className="notification-layout"><section className="panel notification-panel"><div className="notification-filter"><button className="active">All</button><button>Unread <b>2</b></button><button>Interviews</button><button>Screening</button></div>{notifications.map(item => <div className={`notification-item ${!read.includes(item.title) && item.unread ? 'unread' : ''}`} key={item.title}><span className={`notification-icon ${item.type}`}>✓</span><div><strong>{item.title}</strong><p>{item.text}</p><small>{item.time}</small></div>{!read.includes(item.title) && item.unread && <button className="read-dot" onClick={() => setRead([...read,item.title])} aria-label="Mark notification as read"/>}</div>)}</section><aside className="panel notification-preferences"><div className="section-kicker">NOTIFICATION SETTINGS</div><h2>Keep your team in sync</h2><p>Choose which updates should reach your workspace.</p>{['Interview requests','Slot changes','Candidate screening','Calendar updates'].map((item,i)=><label className="toggle-row" key={item}><span>{item}<small>Email and in-app notifications</small></span><input type="checkbox" defaultChecked={i !== 2}/><i/></label>)}</aside></div></> }
-export function NotFoundPage() { return <div className="empty-page"><span className="empty-number">404</span><h1>Page not found</h1><p>This route is not part of the current workspace.</p><Button to="/ta/dashboard">Back to dashboard</Button></div> }
+import { PageHeader } from '../../components/common'
+
+export function NotificationsPage() {
+  return <><PageHeader eyebrow="Workspace" title="Notifications" description="Notification history will appear here when recipient events are exposed by the API." /><section className="panel"><p className="candidate-empty-state">No notification records are available from the current API.</p></section></>
+}
+
+export function NotFoundPage() {
+  return <><PageHeader eyebrow="Workspace" title="Page not found" description="The requested page does not exist." /></>
+}

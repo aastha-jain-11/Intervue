@@ -9,9 +9,10 @@
     "dev:backend": "tsx watch src/server.ts",
     "build": "vite build",
     "build:backend": "tsc -p tsconfig.server.json",
+    "seed:demo": "tsx prisma/seed.ts",
 "typecheck": "tsc -p tsconfig.server.json --noEmit",
     "start": "node dist/server.js",
-    "test": "tsx --test tests/foundation.test.ts tests/auth.test.ts tests/jobs.test.ts tests/candidates.test.ts tests/internal-services.test.ts",
+    "test": "tsx --test tests/foundation.test.ts tests/auth.test.ts tests/jobs.test.ts tests/candidates.test.ts tests/interviewers.test.ts tests/internal-services.test.ts",
     "lint": "oxlint",
     "preview": "vite preview"
   },

@@ -1,36 +1,43 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
-import { candidates, interviews, notifications } from '../../data/demoData'
-import { Badge, Button, CandidateAvatar, PageHeader } from '../../components/common'
+import { ApiError } from '../../api/client'
+import { listInterviews } from '../../api/interviews'
+import { Badge, Button, Detail, PageHeader } from '../../components/common'
 
-const candidate = candidates[0]
-const candidateInterviews = interviews.filter(item => item.candidate === candidate.name || item.id === 'interview-2' || item.id === 'interview-4')
+type Interview = Awaited<ReturnType<typeof listInterviews>>[number]
 
-function InterviewRow({ interview }: { interview: typeof interviews[number] }) {
-  const completed = interview.status === 'Completed'
-  return <div className="candidate-interview-row"><div className="candidate-date"><strong>{completed ? 'Aug 28' : 'Sep 10'}</strong><span>2026</span></div><div className="candidate-interview-info"><strong>{interview.round}</strong><span>{interview.role}</span><small>{completed ? 'Completed conversation' : `${interview.time} · Online`}</small></div><Badge tone={completed ? 'neutral' : 'success'}>{completed ? 'Completed' : 'Upcoming'}</Badge>{!completed && <Button variant="ghost" to={`/interviews/${interview.id}`}>View details</Button>}</div>
+function useCandidateInterviews() {
+  const [interviews, setInterviews] = useState<Interview[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  useEffect(() => { void listInterviews().then(setInterviews).catch((caughtError) => setError(caughtError instanceof ApiError ? caughtError.message : 'Unable to load interviews.')).finally(() => setLoading(false)) }, [])
+  return { interviews, loading, error }
+}
+
+function InterviewRow({ interview }: { interview: Interview }) {
+  const scheduled = interview.selectedSlot ? new Date(interview.selectedSlot) : null
+  return <div className="candidate-interview-row"><div className="candidate-date"><strong>{scheduled ? scheduled.toLocaleDateString() : 'TBD'}</strong><span>{scheduled ? scheduled.toLocaleTimeString() : 'Not scheduled'}</span></div><div className="candidate-interview-info"><strong>{interview.roundType}</strong><span>{interview.application.job.title}</span><small>{interview.durationMins} minutes · {interview.status}</small></div><Badge tone={interview.status === 'scheduled' ? 'success' : 'warning'}>{interview.status}</Badge>{interview.status === 'scheduled' && <Button variant="ghost" to={`/interviews/${interview.id}`}>View details</Button>}</div>
 }
 
 export function CandidateDashboardPage() {
   const { user } = useAuth()
-  const upcoming = candidateInterviews.filter(item => item.status !== 'Completed')
-  return <><PageHeader eyebrow="Candidate portal" title={`Welcome back, ${user?.name.split(' ')[0] || 'there'}`} description="Everything you need for your interview journey, in one place." action={<Button to="/candidate/calendar" variant="secondary">View calendar</Button>} /><section className="candidate-welcome panel"><div className="candidate-welcome-copy"><CandidateAvatar candidate={candidate} large/><div><div className="eyebrow">Software Engineer application</div><h2>Your next conversation is coming up</h2><p>Technical Interview with Rahul Mehta and Priya Shah</p></div></div><div className="candidate-next"><span>Thursday, September 10</span><strong>2:00 - 3:00 PM IST</strong><Button to="/interviews/interview-1" icon="→">View interview</Button></div></section><div className="candidate-stat-grid"><div className="candidate-stat"><span>Upcoming interviews</span><strong>{upcoming.length}</strong><small>Next: Sep 10, 2026</small></div><div className="candidate-stat"><span>Completed interviews</span><strong>{candidateInterviews.filter(item => item.status === 'Completed').length}</strong><small>Keep building momentum</small></div><div className="candidate-stat"><span>Application status</span><strong>In progress</strong><small>Technical interview stage</small></div></div><section className="panel candidate-upcoming"><div className="panel-head"><div><h2>Upcoming interviews</h2><p>Prepare for your next conversations.</p></div><Link className="text-link" to="/candidate/interviews">View all →</Link></div>{upcoming.map(item => <InterviewRow interview={item} key={item.id}/>)}</section></>
+  const { interviews, loading, error } = useCandidateInterviews()
+  const upcoming = interviews.filter(interview => interview.status === 'scheduled')
+  const next = upcoming[0]
+  return <><PageHeader eyebrow="Candidate portal" title={`Welcome back, ${user?.name.split(' ')[0] || 'there'}`} description="Your applications and scheduled interviews from the live workspace." action={<Button to="/candidate/apply" variant="secondary">View open roles</Button>} /><section className="candidate-welcome panel"><div className="candidate-welcome-copy"><div className="avatar avatar-large avatar-coral">{user?.name.split(' ').map(part => part[0]).join('').slice(0, 2)}</div><div><div className="eyebrow">Authenticated profile</div><h2>{user?.name}</h2><p>{user?.email}</p></div></div>{next ? <div className="candidate-next"><span>{new Date(next.selectedSlot as string).toLocaleString()}</span><strong>{next.application.job.title}</strong><Button to={`/interviews/${next.id}`} icon="→">View interview</Button></div> : <div className="candidate-next"><span>No scheduled interviews</span><strong>Keep your availability current</strong></div>}</section><div className="candidate-stat-grid"><div className="candidate-stat"><span>Scheduled interviews</span><strong>{upcoming.length}</strong><small>From the interview API</small></div><div className="candidate-stat"><span>Total interviews</span><strong>{interviews.length}</strong><small>Including pending rounds</small></div><div className="candidate-stat"><span>Role</span><strong>{user?.role}</strong><small>From /users/me</small></div></div><section className="panel candidate-upcoming"><div className="panel-head"><div><h2>Your interviews</h2><p>Live interview records for your account.</p></div><Link className="text-link" to="/candidate/interviews">View all →</Link></div>{loading ? <p>Loading interviews...</p> : error ? <p role="alert" className="form-error">{error}</p> : upcoming.length ? upcoming.map(interview => <InterviewRow interview={interview} key={interview.id}/>) : <p className="candidate-empty-state">No scheduled interviews yet.</p>}</section></>
 }
 
 export function CandidateInterviewsPage() {
-  const [filter, setFilter] = useState<'all' | 'upcoming' | 'completed'>('all')
-  const upcomingCount = candidateInterviews.filter(item => item.status !== 'Completed').length
-  const completedCount = candidateInterviews.filter(item => item.status === 'Completed').length
-  const visibleInterviews = filter === 'upcoming'
-    ? candidateInterviews.filter(item => item.status !== 'Completed')
-    : filter === 'completed'
-      ? candidateInterviews.filter(item => item.status === 'Completed')
-      : candidateInterviews
-
-  return <><PageHeader eyebrow="Candidate portal" title="My interviews" description="Review upcoming conversations and your interview history."/><div className="page-tabs"><button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>All interviews <b>{candidateInterviews.length}</b></button><button className={filter === 'upcoming' ? 'active' : ''} onClick={() => setFilter('upcoming')}>Upcoming <b>{upcomingCount}</b></button><button className={filter === 'completed' ? 'active' : ''} onClick={() => setFilter('completed')}>Completed <b>{completedCount}</b></button></div><section className="panel candidate-interview-list">{visibleInterviews.length > 0 ? visibleInterviews.map(item => <InterviewRow interview={item} key={item.id}/>) : <p className="candidate-empty-state">No interviews in this view yet.</p>}</section></>
+  const { interviews, loading, error } = useCandidateInterviews()
+  const [filter, setFilter] = useState<'all' | 'scheduled' | 'other'>('all')
+  const visible = filter === 'scheduled' ? interviews.filter(item => item.status === 'scheduled') : filter === 'other' ? interviews.filter(item => item.status !== 'scheduled') : interviews
+  return <><PageHeader eyebrow="Candidate portal" title="My interviews" description="Review live interview records and scheduled conversations."/><div className="page-tabs"><button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>All <b>{interviews.length}</b></button><button className={filter === 'scheduled' ? 'active' : ''} onClick={() => setFilter('scheduled')}>Scheduled <b>{interviews.filter(item => item.status === 'scheduled').length}</b></button><button className={filter === 'other' ? 'active' : ''} onClick={() => setFilter('other')}>Other <b>{interviews.filter(item => item.status !== 'scheduled').length}</b></button></div><section className="panel">{loading ? <p>Loading interviews...</p> : error ? <p role="alert" className="form-error">{error}</p> : visible.length ? visible.map(interview => <InterviewRow interview={interview} key={interview.id}/>) : <p className="candidate-empty-state">No interviews in this view yet.</p>}</section></>
 }
 
-export function CandidateCalendarPage() { const days = ['MON 7','TUE 8','WED 9','THU 10','FRI 11']; return <><PageHeader eyebrow="Candidate portal" title="My calendar" description="Your interviews and preparation time for the week ahead." action={<div className="calendar-actions"><Button variant="secondary">←</Button><Button variant="secondary">Today</Button><Button variant="secondary">→</Button></div>}/><section className="panel calendar-panel candidate-calendar"><div className="calendar-toolbar"><div><strong>September 7 - 11, 2026</strong><span>Asia/Kolkata (IST)</span></div><div className="calendar-legend"><span>● Interview</span><span>● Available</span></div></div><div className="calendar-grid"><div className="time-column"><span/>{['9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM'].map(time => <span key={time}>{time}</span>)}</div><div className="days-grid">{days.map(day => <div className="day-column" key={day}><strong>{day}</strong>{Array.from({length:9}).map((_,i)=><span className="hour-cell" key={i}/>)}</div>)}<div className="calendar-event orange" style={{left:'61%',top:'190px',height:'96px'}}><strong>Technical interview</strong><small>2:00 - 3:00 PM</small></div></div></div></section></> }
+export function CandidateCalendarPage() {
+  const { interviews, loading, error } = useCandidateInterviews()
+  return <><PageHeader eyebrow="Candidate portal" title="My calendar" description="Scheduled interviews from the backend."/><section className="panel">{loading ? <p>Loading calendar...</p> : error ? <p role="alert" className="form-error">{error}</p> : interviews.filter(item => item.selectedSlot).map(interview => { const start = new Date(interview.selectedSlot as string); return <div className="candidate-interview-row" key={interview.id}><Detail label="Interview" value={interview.application.job.title} /><Detail label="When" value={start.toLocaleString()} /><Detail label="Status" value={interview.status} /></div> })}</section></>
+}
 
-export function CandidateNotificationsPage() { const [read, setRead] = useState<string[]>([]); return <><PageHeader eyebrow="Candidate portal" title="Notifications" description="Updates about your application and interviews." action={<Button variant="secondary" onClick={() => setRead(notifications.map(item => item.title))}>Mark all as read</Button>}/><section className="panel notification-panel candidate-notifications"><div className="notification-filter"><button className="active">All</button><button>Unread <b>2</b></button><button>Interviews</button></div>{notifications.slice(0,3).map(item => <div className={`notification-item ${!read.includes(item.title) && item.unread ? 'unread' : ''}`} key={item.title}><span className={`notification-icon ${item.type}`}>✓</span><div><strong>{item.title}</strong><p>{item.type === 'request' ? 'Your interviewer has been confirmed for the upcoming conversation.' : item.text}</p><small>{item.time}</small></div>{!read.includes(item.title) && item.unread && <button className="read-dot" onClick={() => setRead([...read,item.title])} aria-label="Mark notification as read"/>}</div>)}</section></> }
+export function CandidateNotificationsPage() { return <><PageHeader eyebrow="Candidate portal" title="Notifications" description="Notification history will appear here when the notification API exposes recipient events."/><section className="panel"><p className="candidate-empty-state">No notification records are available for this account.</p></section></> }

@@ -1,2 +1,14 @@
-import { Button, PageHeader } from '../../components/common'
-export function TACalendarPage() { const days = ['MON 7','TUE 8','WED 9','THU 10','FRI 11']; return <><PageHeader eyebrow="Talent acquisition" title="Calendar" description="See your team availability and scheduled interviews." action={<div className="calendar-actions"><Button variant="secondary">←</Button><Button variant="secondary">Today</Button><Button variant="secondary">→</Button></div>}/><section className="panel calendar-panel"><div className="calendar-toolbar"><div><strong>September 7 - 11, 2026</strong><span>Week 37</span></div><div className="calendar-legend"><span>● Interviews</span><span>● Busy</span><span>● Available</span></div></div><div className="calendar-grid"><div className="time-column"><span/>{['9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM'].map(time => <span key={time}>{time}</span>)}</div><div className="days-grid">{days.map(day => <div className="day-column" key={day}><strong>{day}</strong>{Array.from({length:9}).map((_,i)=><span className="hour-cell" key={i}/>)}</div>)}<div className="calendar-event orange" style={{left:'21%',top:'190px',height:'96px'}}><strong>Rahul Sharma</strong><small>Interview</small></div><div className="calendar-event blue" style={{left:'41%',top:'346px',height:'96px'}}><strong>Priya Kumar</strong><small>Interview</small></div></div></div></section></> }
+import { useEffect, useState } from 'react'
+import { ApiError } from '../../api/client'
+import { listInterviews } from '../../api/interviews'
+import { PageHeader } from '../../components/common'
+
+type Interview = Awaited<ReturnType<typeof listInterviews>>[number]
+
+export function TACalendarPage() {
+  const [interviews, setInterviews] = useState<Interview[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  useEffect(() => { void listInterviews().then(setInterviews).catch((caughtError) => setError(caughtError instanceof ApiError ? caughtError.message : 'Unable to load calendar.')).finally(() => setLoading(false)) }, [])
+  return <><PageHeader eyebrow="Talent acquisition" title="Calendar" description="Scheduled interviews from live backend records." /><section className="panel">{loading ? <p>Loading calendar...</p> : error ? <p role="alert" className="form-error">{error}</p> : interviews.filter(item => item.selectedSlot).length === 0 ? <p className="candidate-empty-state">No scheduled interviews yet.</p> : interviews.filter(item => item.selectedSlot).map(interview => <div className="candidate-interview-row" key={interview.id}><div><strong>{interview.application.candidate.name}</strong><span>{interview.application.job.title} · {interview.roundType}</span></div><div><strong>{new Date(interview.selectedSlot as string).toLocaleString()}</strong><span>{interview.selectedInterviewer?.name || 'Interviewer not selected'}</span></div></div>)}</section></>
+}

@@ -90,7 +90,7 @@ export async function loginUser(input: LoginInput): Promise<AuthResult> {
   return { token: createApplicationToken(user.id, user.role), user: toPublicUser(user) };
 }
 
-export async function authenticateGoogleUser(identity: GoogleIdentity): Promise<AuthResult> {
+export async function authenticateGoogleUser(identity: GoogleIdentity, requestedRole: 'candidate' | 'interviewer' = 'candidate'): Promise<AuthResult> {
   const generatedPasswordHash = await bcrypt.hash(randomBytes(32).toString('hex'), 12);
 
   try {
@@ -136,7 +136,7 @@ export async function authenticateGoogleUser(identity: GoogleIdentity): Promise<
           name: identity.name,
           email: identity.email,
           passwordHash: generatedPasswordHash,
-          role: 'candidate',
+          role: requestedRole,
           timezone: 'UTC',
           oauthAccounts: {
             create: {
@@ -144,13 +144,9 @@ export async function authenticateGoogleUser(identity: GoogleIdentity): Promise<
               providerAccountId: identity.providerAccountId,
             },
           },
-          candidateProfile: {
-            create: {
-              name: identity.name,
-              email: identity.email,
-              timezone: 'UTC',
-            },
-          },
+          ...(requestedRole === 'candidate'
+            ? { candidateProfile: { create: { name: identity.name, email: identity.email, timezone: 'UTC' } } }
+            : { interviewerProfile: { create: { name: identity.name, email: identity.email, jobRole: '', interviewerType: 'screening', experienceYears: 0, timezone: 'UTC', skills: [] } } }),
         },
       });
 

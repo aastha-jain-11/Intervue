@@ -50,13 +50,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           <NavItem to={isInterviewer ? '/interviewer/calendar' : '/ta/interviews'} icon="▣">{isInterviewer ? 'Calendar' : 'Interviews'}</NavItem>
           {!isInterviewer && <NavItem to="/ta/calendar" icon="□">Calendar</NavItem>}
         </>}
-        <NavItem to={notificationsPath} icon="◌">Notifications <span className="nav-count">3</span></NavItem>
+        <NavItem to={notificationsPath} icon="◌">Notifications</NavItem>
         {!isCandidate && <><p className="nav-label nav-spaced">Manage</p><NavItem to="/settings" icon="⚙">Settings</NavItem></>}
       </nav>
       <div className="sidebar-bottom"><div className="help-card"><span className="help-icon">?</span><div><strong>Need a hand?</strong><small>Visit Help Center</small></div><span>↗</span></div><div className="profile-row"><div className="avatar avatar-indigo">{user ? initials(user.name) : 'I'}</div><div><strong>{user?.name || 'Intervue user'}</strong><small>{user ? roleLabel(user.role) : ''}</small></div><button className="more" type="button" onClick={() => void handleLogout()} aria-label="Log out">↪</button></div></div>
     </aside>
     <main className="main-area">
-      <header className="topbar"><button className="icon-btn menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle navigation">☰</button><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>{roleLabel(role)}</strong></div><div className="top-actions"><button className="icon-btn" aria-label="Search">⌕</button><Link className="notification-bell" to={notificationsPath} aria-label="Notifications">♧<i>3</i></Link><div className="avatar avatar-indigo">{user ? initials(user.name) : 'I'}</div></div></header>
+      <header className="topbar"><button className="icon-btn menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle navigation">☰</button><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>{roleLabel(role)}</strong></div><div className="top-actions"><button className="icon-btn" aria-label="Search">⌕</button><Link className="notification-bell" to={notificationsPath} aria-label="Notifications">♧</Link><div className="avatar avatar-indigo">{user ? initials(user.name) : 'I'}</div></div></header>
       <div className="content">{children}</div>
     </main>
   </div>

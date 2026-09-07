@@ -1,11 +1,25 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { candidates, interviews, interviewers } from '../../data/demoData'
-import { Badge, Button, CandidateAvatar, Detail, PageHeader } from '../../components/common'
+import { ApiError } from '../../api/client'
+import { getInterview } from '../../api/interviews'
+import { Badge, Detail, PageHeader } from '../../components/common'
 
 export function InterviewerDetailsPage() {
-	const { interviewId = 'interview-1' } = useParams()
-	const interview = interviews.find(item => item.id === interviewId) || interviews[0]
-	const [accepted, setAccepted] = useState(false)
-	return <><div className="back-link"><Link to="/interviewer/interviews">← Back to my interviews</Link></div><PageHeader eyebrow="Interview request" title={accepted ? 'Slot accepted' : 'Review interview request'} description="Review the context before confirming your availability." action={<Badge tone={accepted ? 'success' : 'warning'}>{accepted ? 'Accepted' : 'Awaiting response'}</Badge>} /><div className="details-layout"><div className="details-main"><section className="panel interview-hero-card"><div className="candidate-identity"><CandidateAvatar candidate={candidates[0]} large /><div><div className="eyebrow">{interview.round}</div><h2>{interview.candidate}</h2><p>{interview.role} · ATS score <strong>94%</strong></p></div></div><div className="interview-facts"><Detail label="Proposed date" value={interview.date} /><Detail label="Time" value={interview.time} /><Detail label="Duration" value="60 minutes" /><Detail label="Mode" value="Online" /></div></section><section className="panel"><div className="panel-head"><div><h2>Interview panel</h2><p>People joining this interview</p></div></div>{interviewers.slice(0, 2).map(item => <div className="panel-person" key={item.name}><div className="avatar avatar-indigo">{item.name.split(' ').map(word => word[0]).join('')}</div><div><strong>{item.name}</strong><span>{item.title}</span></div><Badge>{item.type}</Badge></div>)}</section></div><aside className="details-aside"><section className="panel action-panel"><div className="section-kicker">RECOMMENDATION</div><h2>Great fit for your expertise</h2><p>You have strong overlap with the candidate's backend and system design experience.</p><div className="big-match"><strong>{interview.score}%</strong><span>scheduling score</span></div>{accepted ? <Button to="/interviews/interview-1">View confirmed interview</Button> : <Button onClick={() => setAccepted(true)}>✓ Accept slot</Button>}</section></aside></div></>
+  const { interviewId } = useParams<{ interviewId: string }>()
+  const [interview, setInterview] = useState<Awaited<ReturnType<typeof getInterview>> | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!interviewId) return
+    void getInterview(interviewId).then(setInterview).catch((caughtError) => {
+      setError(caughtError instanceof ApiError ? caughtError.message : 'Unable to load this interview.')
+    })
+  }, [interviewId])
+
+  if (error) return <p role="alert" className="form-error">{error}</p>
+  if (!interview) return <p>Loading interview...</p>
+  const selectedSlot = interview.selectedSlot ? new Date(interview.selectedSlot) : null
+  const endSlot = selectedSlot ? new Date(selectedSlot.getTime() + interview.durationMins * 60_000) : null
+
+  return <><div className="back-link"><Link to="/interviewer/interviews">← Back to my interviews</Link></div><PageHeader eyebrow="Interview details" title={interview.application.candidate.name} description={`${interview.application.job.title} · ${interview.roundType}`} action={<Badge tone={interview.status === 'scheduled' ? 'success' : 'warning'}>{interview.status}</Badge>} /><section className="panel"><div className="interview-facts"><Detail label="Candidate email" value={interview.application.candidate.email} /><Detail label="Scheduled date" value={selectedSlot ? selectedSlot.toLocaleDateString() : 'Not scheduled'} /><Detail label="Time" value={selectedSlot && endSlot ? `${selectedSlot.toLocaleTimeString()} - ${endSlot.toLocaleTimeString()}` : 'Not scheduled'} /><Detail label="Duration" value={`${interview.durationMins} minutes`} /></div>{interview.meetLink && <p><a href={interview.meetLink}>Join meeting</a></p>}</section></>
 }

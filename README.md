@@ -112,6 +112,15 @@ npx prisma generate
 Check the Prisma schema:
 
 npx prisma validate
+
+Controlled demo seed (use only with a local/development database):
+
+```powershell
+$env:DEMO_PASSWORD = '<local-only-password>'
+npm run seed:demo
+```
+
+The seed is idempotent and creates one TA/admin, candidate, interviewer, open job, shortlisted application, compatible future availability, and an unscheduled technical interview. It does not reset the database or create a public seed endpoint. Existing records with the configured demo emails are preserved.
 Development
 Frontend
 npm run dev
