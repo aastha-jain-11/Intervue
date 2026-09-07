@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 import os
+import logging
 
 from app.schemas import InterviewScheduledNotification
 from app.services.notification_service import (
@@ -12,6 +13,7 @@ app = FastAPI(
     title="Intervue Notification Service",
     version="1.0.0"
 )
+logger = logging.getLogger(__name__)
 
 
 @app.middleware("http")
@@ -49,9 +51,6 @@ def interview_scheduled(
             "notifications": result
         }
 
-    except Exception as e:
-
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
+    except Exception:
+        logger.exception("notification delivery failed for interview_id=%s", request.interview_id)
+        raise HTTPException(status_code=500, detail="Notification delivery failed")

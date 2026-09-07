@@ -26,8 +26,9 @@ const resumeServiceConfigSchema = timeoutSchema.extend({
 
 const notificationServiceConfigSchema = timeoutSchema.extend({
   NOTIFICATION_SERVICE_URL: z.string().url('NOTIFICATION_SERVICE_URL is required'),
-  NOTIFICATION_SERVICE_TOKEN: z.string().min(1, 'NOTIFICATION_SERVICE_TOKEN is required'),
-});
+  NOTIFICATION_SERVICE_TOKEN: z.string().min(1).optional(),
+  INTERNAL_SERVICE_TOKEN: z.string().min(1).optional(),
+}).refine((value) => Boolean(value.INTERNAL_SERVICE_TOKEN ?? value.NOTIFICATION_SERVICE_TOKEN));
 
 export class InternalServiceConfigurationError extends Error {
   constructor(service: InternalServiceName) {
@@ -74,7 +75,7 @@ export function getInternalServiceConfig(
   const config = result.data;
   return {
     url: config.NOTIFICATION_SERVICE_URL,
-    token: config.NOTIFICATION_SERVICE_TOKEN,
+      token: config.INTERNAL_SERVICE_TOKEN ?? config.NOTIFICATION_SERVICE_TOKEN!,
     timeouts: {
       screeningMs: config.RESUME_SERVICE_SCREENING_TIMEOUT_MS,
       computeMs: config.RESUME_SERVICE_COMPUTE_TIMEOUT_MS,

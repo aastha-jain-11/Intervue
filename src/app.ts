@@ -12,6 +12,7 @@ import { candidatesRouter } from './modules/candidates/candidates.routes.js';
 import { interviewersRouter } from './modules/interviewers/interviewers.routes.js';
 import { applicationsRouter } from './modules/applications/applications.routes.js';
 import { interviewsRouter } from './modules/interviews/interviews.routes.js';
+import { notificationsRouter } from './modules/notifications/notifications.routes.js';
 import { healthRouter } from './routes/health.routes';
 
 export const app = express();
@@ -31,5 +32,6 @@ app.use(candidatesRouter);
 app.use(interviewersRouter);
 app.use(applicationsRouter);
 app.use(interviewsRouter);
+app.use(notificationsRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);

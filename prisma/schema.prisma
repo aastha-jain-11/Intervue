@@ -409,6 +409,8 @@ model NotificationLog {
   channel       NotificationChannel
   type          String
   status        NotificationStatus @default(pending)
+  message       String?
+  readAt        DateTime?
   timestamp     DateTime           @default(now())
 
   interview Interview? @relation(fields: [interviewId], references: [id])

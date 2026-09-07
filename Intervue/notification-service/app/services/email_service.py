@@ -3,7 +3,8 @@ from sendgrid.helpers.mail import Mail
 
 from app.config import (
     SENDGRID_API_KEY,
-    SENDGRID_FROM_EMAIL
+    SENDGRID_FROM_EMAIL,
+    require_email_configuration,
 )
 
 
@@ -13,6 +14,7 @@ def send_email(
     subject: str,
     body: str
 ) -> dict:
+    require_email_configuration()
 
     message = Mail(
         from_email=SENDGRID_FROM_EMAIL,

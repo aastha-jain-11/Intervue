@@ -1,0 +1,2 @@
+ALTER TABLE "NotificationLog" ADD COLUMN IF NOT EXISTS "message" TEXT;
+ALTER TABLE "NotificationLog" ADD COLUMN IF NOT EXISTS "readAt" TIMESTAMP(3);

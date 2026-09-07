@@ -1,44 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../api/client'
-import { autoScheduleInterview, getInterview } from '../../api/interviews'
+import { getInterview, getSlotRecommendations, proposeInterview, type AvailabilityRecommendation } from '../../api/interviews'
 import { PageHeader } from '../../components/common'
-
+const fmt = (value: string) => new Date(value).toLocaleString('en-US', { timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'short' }) + ' UTC'
 export function SlotRecommendationsPage() {
-  const { interviewId } = useParams<{ interviewId: string }>()
-  const [interview, setInterview] = useState<Awaited<ReturnType<typeof getInterview>> | null>(null)
-  const [notificationSent, setNotificationSent] = useState<boolean | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [scheduling, setScheduling] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (!interviewId) return
-    void getInterview(interviewId).then(setInterview).catch((caughtError) => {
-      setError(caughtError instanceof ApiError ? caughtError.message : 'Unable to load the interview.')
-    }).finally(() => setLoading(false))
-  }, [interviewId])
-
-  async function autoSchedule() {
-    if (!interviewId) return
-    setScheduling(true)
-    setError('')
-    try {
-      const result = await autoScheduleInterview(interviewId)
-      setInterview(result.interview)
-      setNotificationSent(result.notificationSent)
-    } catch (caughtError) {
-      setError(caughtError instanceof ApiError ? caughtError.message : 'Unable to schedule the interview.')
-    } finally { setScheduling(false) }
-  }
-
-  if (loading) return <p>Loading interview...</p>
-  return <>
-    <div className="back-link"><Link to="/ta/interviews/create">← Back to setup</Link></div>
-    <PageHeader eyebrow="Interview workflow · Step 2 of 2" title="Automatic scheduling" description="The scheduler checks candidate and interviewer availability before booking." />
-    <section className="panel">
-      {interview && <><h2>{interview.application.candidate.name} · {interview.application.job.title}</h2><p>Status: {interview.status}</p>{interview.selectedSlot && <p>Booked slot: {new Date(interview.selectedSlot).toLocaleString()}</p>}{interview.selectedInterviewer && <p>Interviewer: {interview.selectedInterviewer.name}</p>}<button className="button" type="button" onClick={() => void autoSchedule()} disabled={scheduling || interview.status === 'scheduled'}>{scheduling ? 'Finding a compatible slot...' : interview.status === 'scheduled' ? 'Interview scheduled' : 'Auto-schedule interview'}</button>{notificationSent !== null && <p role="status">Notification: {notificationSent ? 'sent' : 'booking succeeded, notification failed'}</p>}</>}
-      {error && <p role="alert" className="form-error">{error}</p>}
-    </section>
-  </>
+  const { interviewId } = useParams<{ interviewId: string }>(); const [interview, setInterview] = useState<Awaited<ReturnType<typeof getInterview>> | null>(null); const [items, setItems] = useState<AvailabilityRecommendation[]>([]); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState(''); const [message, setMessage] = useState('')
+  useEffect(() => { if (!interviewId) return; void Promise.all([getInterview(interviewId), getSlotRecommendations(interviewId)]).then(([record, recommendations]) => { setInterview(record); setItems(recommendations) }).catch(e => setError(e instanceof ApiError ? e.message : 'Unable to calculate recommendations.')).finally(() => setLoading(false)) }, [interviewId])
+  async function propose(item: AvailabilityRecommendation) { if (!interviewId) return; setSaving(true); setError(''); try { setInterview(await proposeInterview(interviewId, item.interviewerId, item.startUtc)); setMessage('Interview proposal sent to the interviewer for acceptance.') } catch (e) { setError(e instanceof ApiError ? e.message : 'Unable to send proposal.') } finally { setSaving(false) } }
+  if (loading) return <p>Checking database availability...</p>
+  return <><div className="back-link"><Link to="/ta/interviews">← Back to interviews</Link></div><PageHeader eyebrow="Interview workflow · common availability" title="Recommended interview times" description="Recommendations are calculated on the backend from persisted candidate and interviewer availability." /><section className="panel">{interview && <><h2>{interview.application.candidate.name} · {interview.application.job.title}</h2><p>Status: {interview.status === 'interviewer_requested' ? 'Awaiting interviewer confirmation' : interview.status}</p></>}{message && <p role="status">{message}</p>}{error && <p role="alert" className="form-error">{error}</p>}{!error && !items.length && <p>No suitable slot found. There is no eligible interviewer with a common {interview?.durationMins}-minute availability window.</p>}{items.map(item => <article className="candidate-interview-row" key={`${item.interviewerId}-${item.startUtc}`}><div className="candidate-interview-info"><strong>{item.interviewerName}</strong><span>Recommended based on common availability</span><small>Candidate availability: {fmt(item.candidateAvailability.startUtc)} – {fmt(item.candidateAvailability.endUtc)}</small><small>Interviewer availability: {fmt(item.interviewerAvailability.startUtc)} – {fmt(item.interviewerAvailability.endUtc)}</small><small>Common/recommended interview: {fmt(item.startUtc)} – {fmt(item.endUtc)}</small></div><button className="button" disabled={saving || interview?.status !== 'pending'} onClick={() => void propose(item)}>{saving ? 'Sending...' : interview?.status === 'pending' ? 'Send proposal' : 'Proposal sent'}</button></article>)}</section></>
 }

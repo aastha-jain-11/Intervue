@@ -15,7 +15,9 @@ type Interview = {
   application: Application
   matches: Array<{ interviewerId: string; matchScore: number; rank: number }>
   slotRecommendations: Array<{ slot: string; priorityScore: number; rank: number }>
+  requests: Array<{ id: string; status: string; slot: string }>
 }
+export type AvailabilityRecommendation = { interviewerId: string; interviewerName: string; startUtc: string; endUtc: string; durationMins: number; reason: string; candidateAvailability: { startUtc: string; endUtc: string }; interviewerAvailability: { startUtc: string; endUtc: string } }
 
 type ApplicationsResponse = { success: boolean; data: { applications: Application[] } }
 type InterviewResponse = { success: boolean; data: { interview: Interview } }
@@ -49,3 +51,7 @@ export async function autoScheduleInterview(interviewId: string): Promise<AutoSc
   const response = await request<AutoScheduleResponse>(`/api/interviews/${interviewId}/auto-schedule`, { method: 'POST' })
   return response.data
 }
+export async function getSlotRecommendations(interviewId: string): Promise<AvailabilityRecommendation[]> { const response = await request<{ success: boolean; data: { recommendations: AvailabilityRecommendation[] } }>(`/api/interviews/${interviewId}/slot-recommendations`); return response.data.recommendations }
+export async function proposeInterview(interviewId: string, interviewerId: string, selectedSlot: string): Promise<Interview> { const response = await request<InterviewResponse>(`/api/interviews/${interviewId}/proposal`, { method: 'POST', body: JSON.stringify({ interviewerId, selectedSlot }) }); return response.data.interview }
+export async function acceptInterview(interviewId: string): Promise<Interview> { const response = await request<InterviewResponse>(`/api/interviews/${interviewId}/accept`, { method: 'POST' }); return response.data.interview }
+export async function rejectInterview(interviewId: string): Promise<Interview> { const response = await request<InterviewResponse>(`/api/interviews/${interviewId}/reject`, { method: 'POST' }); return response.data.interview }
